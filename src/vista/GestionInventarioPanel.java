@@ -33,7 +33,7 @@ public class GestionInventarioPanel extends JPanel {
         // 1. Cabecera
         JPanel panelNorte = new JPanel(new BorderLayout());
         JPanel panelFiltro = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        panelFiltro.add(new JLabel("📍 Seleccionar Sucursal:"));
+        panelFiltro.add(new JLabel("📍 Seleccionar sucursal:"));
         
         comboSucursal = new JComboBox<>();
         cargarComboSucursales();
@@ -187,7 +187,7 @@ public class GestionInventarioPanel extends JPanel {
 
         // --- SECCIÓN BUSCADOR ---
         JPanel pBusqueda = new JPanel(new GridBagLayout());
-        pBusqueda.setBorder(BorderFactory.createTitledBorder("🔍 Búsqueda Rápida"));
+        pBusqueda.setBorder(BorderFactory.createTitledBorder("🔍 Búsqueda rápida"));
         GridBagConstraints gbcB = new GridBagConstraints();
         gbcB.insets = new Insets(5,5,5,5); gbcB.fill = GridBagConstraints.HORIZONTAL;
         
@@ -199,14 +199,14 @@ public class GestionInventarioPanel extends JPanel {
 
         // --- SECCIÓN GESTIÓN ---
         pGestion = new JPanel(new GridBagLayout()); // Inicializamos la variable de clase
-        pGestion.setBorder(BorderFactory.createTitledBorder("📦 Gestión de Mercadería"));
+        pGestion.setBorder(BorderFactory.createTitledBorder("📦 Gestión de mercadería"));
         GridBagConstraints gbcG = new GridBagConstraints();
         gbcG.insets = new Insets(8,8,8,8); gbcG.fill = GridBagConstraints.HORIZONTAL;
 
         txtSku = new JTextField(12); txtSku.setEditable(false);
         txtNombre = new JTextField(12); txtNombre.setEditable(false);
         txtStockActual = new JTextField(12);
-        btnActualizarStock = new JButton("📥 Registrar Ingreso");
+        btnActualizarStock = new JButton("📥 Registrar ingreso");
         btnActualizarStock.setBackground(new Color(46, 204, 113));
         btnActualizarStock.setForeground(Color.WHITE);
 
@@ -214,7 +214,7 @@ public class GestionInventarioPanel extends JPanel {
         gbcG.gridx = 1; pGestion.add(txtSku, gbcG);
         gbcG.gridx = 0; gbcG.gridy = 1; pGestion.add(new JLabel("Producto:"), gbcG);
         gbcG.gridx = 1; pGestion.add(txtNombre, gbcG);
-        gbcG.gridx = 0; gbcG.gridy = 2; pGestion.add(new JLabel("Ajuste Cantidad:"), gbcG);
+        gbcG.gridx = 0; gbcG.gridy = 2; pGestion.add(new JLabel("Ajuste cantidad:"), gbcG);
         gbcG.gridx = 1; pGestion.add(txtStockActual, gbcG);
         gbcG.gridx = 0; gbcG.gridy = 3; gbcG.gridwidth = 2; pGestion.add(btnActualizarStock, gbcG);
 
@@ -226,7 +226,7 @@ public class GestionInventarioPanel extends JPanel {
     }
 
     private void configurarTabla() {
-        String[] columnas = {"SKU", "Producto", "Stock Actual", "Ubicación/Mín.", "Estado"};
+        String[] columnas = {"SKU", "Producto", "Stock actual", "Ubicación/Mín.", "Estado"};
         tableModel = new DefaultTableModel(columnas, 0) {
             @Override public boolean isCellEditable(int row, int column) { return false; }
         };

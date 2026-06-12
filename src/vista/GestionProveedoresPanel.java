@@ -27,7 +27,7 @@ public class GestionProveedoresPanel extends JPanel {
         inicializarComponentes();
         
         // Estructura de tabla limpia y nativa según tu base de datos
-        tableModel = new DefaultTableModel(new Object[]{"ID", "Nombre / Razón Social", "CUIT", "Contacto (Teléfono/Email)"}, 0) {
+        tableModel = new DefaultTableModel(new Object[]{"ID", "Nombre / Razón social", "CUIT", "Contacto (teléfono/email)"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
         };
@@ -37,7 +37,7 @@ public class GestionProveedoresPanel extends JPanel {
         tablaProveedores.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
         JScrollPane scrollPane = new JScrollPane(tablaProveedores);
-        scrollPane.setBorder(BorderFactory.createTitledBorder("Listado de Proveedores"));
+        scrollPane.setBorder(BorderFactory.createTitledBorder("Listado de proveedores"));
 
         // Acoplamos los paneles respetando el flujo de la app
         add(crearPanelSuperior(), BorderLayout.NORTH);
@@ -57,9 +57,9 @@ public class GestionProveedoresPanel extends JPanel {
         txtContacto = new JTextField();
         
         // Botonera centralizada
-        btnGuardar = new JButton("Guardar / Actualizar");
-        btnEliminar = new JButton("Eliminar Proveedor"); // CORREGIDO: Texto conceptual unificado
-        btnLimpiar = new JButton("Limpiar / Nuevo");
+        btnGuardar = new JButton("Guardar / actualizar");
+        btnEliminar = new JButton("Eliminar proveedor"); // CORREGIDO: Texto conceptual unificado
+        btnLimpiar = new JButton("Limpiar / nuevo");
     }
 
     private JPanel crearPanelSuperior() {
@@ -67,7 +67,7 @@ public class GestionProveedoresPanel extends JPanel {
 
         // Grid de 2 filas y 4 columnas idéntico al panel de Clientes
         JPanel panelFormulario = new JPanel(new GridLayout(2, 4, 15, 10));
-        panelFormulario.setBorder(BorderFactory.createTitledBorder("Detalles del Proveedor"));
+        panelFormulario.setBorder(BorderFactory.createTitledBorder("Detalles del proveedor"));
 
         Font labelFont = new Font("SansSerif", Font.PLAIN, 12);
         
@@ -77,7 +77,7 @@ public class GestionProveedoresPanel extends JPanel {
         panelFormulario.add(lblId);
         panelFormulario.add(txtId);
         
-        JLabel lblNombre = new JLabel("Nombre Completo:");
+        JLabel lblNombre = new JLabel("Nombre completo:");
         lblNombre.setFont(labelFont);
         panelFormulario.add(lblNombre);
         panelFormulario.add(txtNombre);
@@ -88,7 +88,7 @@ public class GestionProveedoresPanel extends JPanel {
         panelFormulario.add(lblCuit);
         panelFormulario.add(txtCuit);
         
-        JLabel lblContacto = new JLabel("Dirección / Contacto:");
+        JLabel lblContacto = new JLabel("Dirección / contacto:");
         lblContacto.setFont(labelFont);
         panelFormulario.add(lblContacto);
         panelFormulario.add(txtContacto);
@@ -203,7 +203,7 @@ public class GestionProveedoresPanel extends JPanel {
         }
 
         int id = Integer.parseInt(txtId.getText());
-        int confirm = JOptionPane.showConfirmDialog(this, "¿Está seguro de eliminar al proveedor: " + txtNombre.getText() + "?", "Confirmar Eliminación", JOptionPane.YES_NO_OPTION);
+        int confirm = JOptionPane.showConfirmDialog(this, "¿Está seguro de eliminar al proveedor: " + txtNombre.getText() + "?", "Confirmar eliminación", JOptionPane.YES_NO_OPTION);
 
         if (confirm == JOptionPane.YES_OPTION) {
             try {
@@ -217,7 +217,7 @@ public class GestionProveedoresPanel extends JPanel {
             } catch (SQLException e) {
                 JOptionPane.showMessageDialog(this, 
                     "Error de integridad. Verifique que no existan Órdenes de Compra vinculadas a este proveedor.", 
-                    "Error de Clave Foránea", JOptionPane.ERROR_MESSAGE);
+                    "Error de clave foránea", JOptionPane.ERROR_MESSAGE);
                 e.printStackTrace();
             }
         }

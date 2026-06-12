@@ -54,7 +54,7 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
         
         // CORREGIDO: Grid de 2 filas y 4 columnas para que los combos tengan el ancho correcto nativo
         JPanel panelCampos = new JPanel(new GridLayout(2, 4, 15, 10));
-        panelCampos.setBorder(BorderFactory.createTitledBorder("Detalles de la Orden de Compra"));
+        panelCampos.setBorder(BorderFactory.createTitledBorder("Detalles de la orden de compra"));
 
         Font labelFont = new Font("SansSerif", Font.PLAIN, 12);
 
@@ -65,7 +65,7 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
         cmbProveedor = new JComboBox<>();
         panelCampos.add(cmbProveedor);
         
-        JLabel lblProd = new JLabel("Producto / Artículo:");
+        JLabel lblProd = new JLabel("Producto / artículo:");
         lblProd.setFont(labelFont);
         panelCampos.add(lblProd);
         cmbProducto = new JComboBox<>();
@@ -78,7 +78,7 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
         txtCantidad = new JTextField();
         panelCampos.add(txtCantidad);
         
-        JLabel lblPrecio = new JLabel("Precio Unitario Compra:");
+        JLabel lblPrecio = new JLabel("Precio unitario compra:");
         lblPrecio.setFont(labelFont);
         panelCampos.add(lblPrecio);
         txtPrecioUnitario = new JTextField();
@@ -89,9 +89,9 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
         // ==========================================
         JPanel panelBotonera = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 5));
         
-        btnAgregarLinea = new JButton("Agregar Ítem");
-        btnEliminarLinea = new JButton("Eliminar Seleccionado");
-        btnGuardarOC = new JButton("Guardar / Emitir OC");
+        btnAgregarLinea = new JButton("Agregar ítem");
+        btnEliminarLinea = new JButton("Eliminar seleccionado");
+        btnGuardarOC = new JButton("Guardar / emitir OC");
 
         // Dimensiones estándar de botones en SISTEMA AFD
         Dimension buttonSize = new Dimension(160, 30);
@@ -118,9 +118,9 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
         //  PANEL INFERIOR: GRID / LISTADO DE ÍTEMS
         // ==========================================
         JPanel panelTablaContenedor = new JPanel(new BorderLayout(5, 5));
-        panelTablaContenedor.setBorder(BorderFactory.createTitledBorder("Detalle de Ítems Agregados"));
+        panelTablaContenedor.setBorder(BorderFactory.createTitledBorder("Detalle de ítems agregados"));
 
-        String[] columnas = {"SKU", "Descripción Producto", "Cantidad", "Precio U.", "Subtotal"};
+        String[] columnas = {"SKU", "Descripción producto", "Cantidad", "Precio U.", "Subtotal"};
         modeloTabla = new DefaultTableModel(columnas, 0) {
             @Override
             public boolean isCellEditable(int row, int col) { return false; }
@@ -181,7 +181,7 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
         try {
             Producto prod = (Producto) cmbProducto.getSelectedItem();
             if (prod == null || txtCantidad.getText().isEmpty() || txtPrecioUnitario.getText().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Complete los datos del ítem.", "Campos Vacíos", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Complete los datos del ítem.", "Campos vacíos", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 

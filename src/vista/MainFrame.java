@@ -24,7 +24,7 @@ public class MainFrame extends JFrame {
         }
 
         // 2. Configuración básica de la ventana
-        setTitle("SISTEMA AFD - Gestión Logística y Comercial");
+        setTitle("Sistema AFD - Gestión logística y comercial");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1366, 768);
         setLocationRelativeTo(null); 
@@ -53,12 +53,12 @@ public class MainFrame extends JFrame {
         menuArchivo.setMnemonic(KeyEvent.VK_A);
 
         // Ítem Cerrar Sesión
-        JMenuItem itemLogout = new JMenuItem("Cerrar Sesión");
+        JMenuItem itemLogout = new JMenuItem("Cerrar sesión");
         itemLogout.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         itemLogout.addActionListener(e -> cerrarSesion());
         
         // Ítem Salir
-        JMenuItem itemSalir = new JMenuItem("Salir del Sistema");
+        JMenuItem itemSalir = new JMenuItem("Salir del sistema");
         itemSalir.addActionListener(e -> System.exit(0));
 
         menuArchivo.add(itemLogout);
@@ -124,7 +124,7 @@ public class MainFrame extends JFrame {
             e.printStackTrace(); 
             JOptionPane.showMessageDialog(this, 
                 "Error fatal al construir la interfaz.\nDetalle: " + e.getMessage(), 
-                "Error de Sistema", 
+                "Error de sistema", 
                 JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -144,7 +144,7 @@ public class MainFrame extends JFrame {
 
     private void cerrarSesion() {
         int confirm = JOptionPane.showConfirmDialog(this, 
-            "¿Desea cerrar la sesión actual?", "Cerrar Sesión", 
+            "¿Desea cerrar la sesión actual?", "Cerrar sesión", 
             JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 
         if (confirm == JOptionPane.YES_OPTION) {

@@ -56,7 +56,7 @@ public class GestionPedidosPanel extends JPanel {
         setLayout(new BorderLayout(10, 10));
         
         btnAgregar = new JButton("Agregar");
-        btnQuitar = new JButton("Eliminar Seleccionado");
+        btnQuitar = new JButton("Eliminar seleccionado");
         btnMas = new JButton("+");
         btnMenos = new JButton("-");
         txtCantidadProducto = new JTextField("1", 3);
@@ -76,7 +76,7 @@ public class GestionPedidosPanel extends JPanel {
 
     private JPanel crearPanelCliente() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        panel.setBorder(BorderFactory.createTitledBorder("Información del Cliente"));
+        panel.setBorder(BorderFactory.createTitledBorder("Información del cliente"));
 
         txtBuscarCliente = new JTextField(12);
         txtNombreCliente = new JTextField(18);
@@ -96,7 +96,7 @@ public class GestionPedidosPanel extends JPanel {
 
     private JPanel crearPanelProductos() {
         JPanel panel = new JPanel(new BorderLayout(5, 5));
-        panel.setBorder(BorderFactory.createTitledBorder("Inventario de Productos"));
+        panel.setBorder(BorderFactory.createTitledBorder("Inventario de productos"));
 
         txtNombreProducto = new JTextField(20);
         txtNombreProducto.setToolTipText("Escribe para filtrar productos...");
@@ -166,7 +166,7 @@ public class GestionPedidosPanel extends JPanel {
         panelSur.add(btnQuitar);
 
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("Detalle de la Venta"));
+        panel.setBorder(BorderFactory.createTitledBorder("Detalle de la venta"));
         panel.add(new JScrollPane(tablaCarrito), BorderLayout.CENTER);
         panel.add(panelSur, BorderLayout.SOUTH);
 
@@ -184,7 +184,7 @@ public class GestionPedidosPanel extends JPanel {
         comboMetodoPago.setFont(new Font("SansSerif", Font.PLAIN, 14));
         comboMetodoPago.setPreferredSize(new Dimension(150, 35));
 
-        btnFinalizarVenta = new JButton("Finalizar Venta");
+        btnFinalizarVenta = new JButton("Finalizar venta");
         btnFinalizarVenta.setPreferredSize(new Dimension(250, 45));
         btnFinalizarVenta.setBackground(new Color(40, 120, 200));
         btnFinalizarVenta.setForeground(Color.WHITE);
@@ -192,7 +192,7 @@ public class GestionPedidosPanel extends JPanel {
 
         // Panel para agrupar Método de Pago y Total
         JPanel panelDerecho = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 5));
-        panelDerecho.add(new JLabel("Método de Pago:"));
+        panelDerecho.add(new JLabel("Método de pago:"));
         panelDerecho.add(comboMetodoPago);
         panelDerecho.add(lblTotal);
 

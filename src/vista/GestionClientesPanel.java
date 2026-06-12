@@ -38,9 +38,9 @@ public class GestionClientesPanel extends JPanel {
         txtTelefono = new JTextField();
         txtDireccion = new JTextField();
         
-        btnGuardar = new JButton("Guardar / Actualizar");
-        btnEliminar = new JButton("Eliminar Cliente");
-        btnLimpiar = new JButton("Limpiar / Nuevo");
+        btnGuardar = new JButton("Guardar / actualizar");
+        btnEliminar = new JButton("Eliminar cliente");
+        btnLimpiar = new JButton("Limpiar / nuevo");
 
         // Quitamos los colores hardcodeados para que FlatLaf maneje el tema oscuro
         // Pero mantenemos fuentes para resaltar
@@ -56,12 +56,12 @@ public class GestionClientesPanel extends JPanel {
         // Formulario (Igual al de Usuarios en image_1fe8ed.png)
         JPanel panelFormulario = new JPanel(new GridLayout(2, 4, 10, 10));
         panelFormulario.setBorder(BorderFactory.createTitledBorder(
-            BorderFactory.createLineBorder(Color.GRAY), "Detalles del Cliente", 
+            BorderFactory.createLineBorder(Color.GRAY), "Detalles del cliente", 
             TitledBorder.LEFT, TitledBorder.TOP));
 
         panelFormulario.add(new JLabel("ID (Auto):"));
         panelFormulario.add(txtId);
-        panelFormulario.add(new JLabel("Nombre Completo:"));
+        panelFormulario.add(new JLabel("Nombre completo:"));
         panelFormulario.add(txtNombre);
         panelFormulario.add(new JLabel("Teléfono:"));
         panelFormulario.add(txtTelefono);
@@ -94,7 +94,7 @@ public class GestionClientesPanel extends JPanel {
         tablaClientes.getColumnModel().getColumn(0).setMaxWidth(0);
 
         JScrollPane scroll = new JScrollPane(tablaClientes);
-        scroll.setBorder(BorderFactory.createTitledBorder("Listado de Clientes"));
+        scroll.setBorder(BorderFactory.createTitledBorder("Listado de clientes"));
         return scroll;
     }
     

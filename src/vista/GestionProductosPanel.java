@@ -26,7 +26,7 @@ public class GestionProductosPanel extends JPanel {
         
         // Configuración de la Tabla
         tableModel = new DefaultTableModel(
-            new Object[]{"SKU", "Nombre", "Precio", "Stock Mín.", "Unidad"}, 0) {
+            new Object[]{"SKU", "Nombre", "Precio", "Stock mín.", "Unidad"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
         };
@@ -52,9 +52,9 @@ public class GestionProductosPanel extends JPanel {
         txtStockMinimo = new JTextField();
         txtUnidadMedida = new JTextField();
         
-        btnGuardar = new JButton("Guardar / Actualizar");
+        btnGuardar = new JButton("Guardar / actualizar");
         btnEliminar = new JButton("Eliminar");
-        btnLimpiar = new JButton("Limpiar / Nuevo");
+        btnLimpiar = new JButton("Limpiar / nuevo");
         
         btnEliminar.setEnabled(false); // Deshabilitado hasta seleccionar algo
     }
@@ -62,21 +62,21 @@ public class GestionProductosPanel extends JPanel {
     private JPanel crearPanelFormulario() {
         JPanel panelPrincipal = new JPanel(new BorderLayout(10, 10));
         JPanel panelCampos = new JPanel(new GridLayout(6, 2, 8, 8));
-        panelCampos.setBorder(BorderFactory.createTitledBorder("Definición de Producto (Maestro)"));
+        panelCampos.setBorder(BorderFactory.createTitledBorder("Definición de producto (maestro)"));
         
-        panelCampos.add(new JLabel("SKU (Código):"));
+        panelCampos.add(new JLabel("SKU (código):"));
         panelCampos.add(txtSku);
         
         panelCampos.add(new JLabel("Nombre:"));
         panelCampos.add(txtNombre);
         
-        panelCampos.add(new JLabel("Precio Venta ($):"));
+        panelCampos.add(new JLabel("Precio venta ($):"));
         panelCampos.add(txtPrecio);
         
-        panelCampos.add(new JLabel("Stock Mínimo:"));
+        panelCampos.add(new JLabel("Stock mínimo:"));
         panelCampos.add(txtStockMinimo);
         
-        panelCampos.add(new JLabel("Unidad de Medida:"));
+        panelCampos.add(new JLabel("Unidad de medida:"));
         panelCampos.add(txtUnidadMedida);
 
         // Panel de botones con mejor distribución

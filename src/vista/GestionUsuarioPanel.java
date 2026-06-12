@@ -44,9 +44,9 @@ public class GestionUsuarioPanel extends JPanel {
         cmbRol = new JComboBox<>(ROLES);
         txtId.setEditable(false);
 
-        btnGuardar = new JButton("💾 Guardar/Actualizar");
-        btnEliminar = new JButton("🗑️ Eliminar Usuario");
-        btnLimpiar = new JButton("✨ Limpiar/Nuevo");
+        btnGuardar = new JButton("💾 Guardar/actualizar");
+        btnEliminar = new JButton("🗑️ Eliminar usuario");
+        btnLimpiar = new JButton("✨ Limpiar/nuevo");
 
         btnEliminar.setEnabled(false); 
     }
@@ -56,7 +56,7 @@ public class GestionUsuarioPanel extends JPanel {
         JPanel panelCampos = new JPanel(new GridLayout(3, 4, 15, 8)); 
         panelCampos.setBorder(BorderFactory.createTitledBorder(
             BorderFactory.createLineBorder(Color.GRAY), 
-            "Detalles de Cuenta y Perfil", 
+            "Detalles de cuenta y perfil", 
             TitledBorder.LEFT, 
             TitledBorder.TOP, 
             new Font("SansSerif", Font.BOLD, 14)
@@ -67,9 +67,9 @@ public class GestionUsuarioPanel extends JPanel {
         panelCampos.add(new JLabel("Rol:"));
         panelCampos.add(cmbRol);
         
-        panelCampos.add(new JLabel("Nombre Completo:"));
+        panelCampos.add(new JLabel("Nombre completo:"));
         panelCampos.add(txtNombre);
-        panelCampos.add(new JLabel("Usuario (Login):"));
+        panelCampos.add(new JLabel("Usuario (login):"));
         panelCampos.add(txtUsuario);
         
         panelCampos.add(new JLabel("Contraseña:"));
@@ -162,13 +162,13 @@ public class GestionUsuarioPanel extends JPanel {
         // CORRECCIÓN 2: Protección de Seguridad
         // Evitamos que el usuario logueado se elimine a sí mismo
         if (idAEliminar == SesionUsuario.getUsuario().getId()) {
-            JOptionPane.showMessageDialog(this, "No puedes eliminar tu propia cuenta de usuario.", "Acción Denegada", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "No puedes eliminar tu propia cuenta de usuario.", "Acción denegada", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
         int confirm = JOptionPane.showConfirmDialog(this, 
             "¿Está seguro de eliminar este usuario?\nEsta acción es irreversible.", 
-            "Confirmar Eliminación", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            "Confirmar eliminación", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
 
         if (confirm == JOptionPane.YES_OPTION) {
             try {

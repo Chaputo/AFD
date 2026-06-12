@@ -38,7 +38,7 @@ public class GestionOperativaPanel extends JPanel {
     }
 
     private void inicializarModeloTabla() {
-        modelPedidos = new DefaultTableModel(new Object[]{"ID", "Fecha Pedido", "Total", "Estado", "ID Cliente", "ID Usuario"}, 0) {
+        modelPedidos = new DefaultTableModel(new Object[]{"ID", "Fecha pedido", "Total", "Estado", "ID Cliente", "ID Usuario"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
         };
@@ -50,11 +50,11 @@ public class GestionOperativaPanel extends JPanel {
 
     private JPanel crearPanelSuperior() {
         JPanel panelPrincipal = new JPanel(new BorderLayout(10, 0));
-        panelPrincipal.setBorder(BorderFactory.createTitledBorder("Gestión Operativa de Pedidos"));
+        panelPrincipal.setBorder(BorderFactory.createTitledBorder("Gestión operativa de pedidos"));
 
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        btnActualizarEstado = new JButton("🔄 Cambiar Estado");
-        btnRecargar = new JButton("↻ Recargar Lista");
+        btnActualizarEstado = new JButton("🔄 Cambiar estado");
+        btnRecargar = new JButton("↻ Recargar lista");
         btnActualizarEstado.setBackground(new Color(255, 165, 0));
         btnActualizarEstado.setForeground(Color.WHITE);
         panelBotones.add(btnActualizarEstado);
@@ -111,7 +111,7 @@ public class GestionOperativaPanel extends JPanel {
         JComboBox<String> cmb = new JComboBox<>(ESTADOS_OPERATIVOS);
         cmb.setSelectedItem(estadoAnterior);
 
-        int opcion = JOptionPane.showConfirmDialog(this, cmb, "Cambiar Estado #" + idPedido, JOptionPane.OK_CANCEL_OPTION);
+        int opcion = JOptionPane.showConfirmDialog(this, cmb, "Cambiar estado #" + idPedido, JOptionPane.OK_CANCEL_OPTION);
 
         if (opcion == JOptionPane.OK_OPTION) {
             String nuevoEstado = (String) cmb.getSelectedItem();
@@ -131,7 +131,7 @@ public class GestionOperativaPanel extends JPanel {
             mensaje += "\nℹ️ Se repondrá el stock de los productos.";
         }
 
-        int conf = JOptionPane.showConfirmDialog(this, mensaje, "Confirmar Operación", JOptionPane.YES_NO_OPTION);
+        int conf = JOptionPane.showConfirmDialog(this, mensaje, "Confirmar operación", JOptionPane.YES_NO_OPTION);
         if (conf == JOptionPane.YES_OPTION) {
             try {
                 // Pasamos ambos estados al DAO para que sepa si sumar o restar stock

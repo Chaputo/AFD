@@ -20,7 +20,7 @@ public class LoginFrame extends JFrame {
     private static final int HEIGHT = 350; // Aumenté un poco el alto para que respire el diseño
 
     public LoginFrame() {
-        setTitle("AFD - Acceso al Sistema");
+        setTitle("AFD - Acceso al sistema");
         setSize(WIDTH, HEIGHT); 
         setLayout(new BorderLayout(10, 10)); 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -105,7 +105,7 @@ public class LoginFrame extends JFrame {
             } else {
                 JOptionPane.showMessageDialog(this, 
                     "Usuario o clave incorrectos. Intente de nuevo.", 
-                    "⚠️ Acceso Denegado",
+                    "⚠️ Acceso denegado",
                     JOptionPane.ERROR_MESSAGE);
                 txtClave.setText("");
                 txtClave.requestFocus();

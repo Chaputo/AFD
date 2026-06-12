@@ -41,7 +41,7 @@ public class GestionReportePanel extends JPanel {
     }
 
     private void inicializarModeloTabla() {
-        String[] columnas = {"ID Ítem", "Nombre / Descripción", "Stock Total", "Mínimo Recomendado", "Estado"};
+        String[] columnas = {"ID Ítem", "Nombre / Descripción", "Stock total", "Mínimo recomendado", "Estado"};
         
         tableModel = new DefaultTableModel(columnas, 0) {
             @Override
@@ -59,17 +59,17 @@ public class GestionReportePanel extends JPanel {
     }
 
     private void inicializarComponentes() {
-        btnConsultarStock = new JButton("🔍 Actualizar Reporte");
+        btnConsultarStock = new JButton("🔍 Actualizar reporte");
         btnConsultarStock.setFont(new Font("SansSerif", Font.BOLD, 12));
         
-        lblTituloReporte = new JLabel("Reporte de Stock Consolidado Multi-Sucursal", SwingConstants.LEFT);
+        lblTituloReporte = new JLabel("Reporte de stock consolidado multi-sucursal", SwingConstants.LEFT);
         lblTituloReporte.setFont(new Font("Segoe UI", Font.BOLD, 18)); 
         
         // Inicializar labels del resumen
         lblTotalProductos = new JLabel("Total Productos: 0");
         lblTotalProductos.setFont(new Font("Segoe UI", Font.BOLD, 13));
         
-        lblTotalCriticos = new JLabel("En Alerta Crítica: 0");
+        lblTotalCriticos = new JLabel("En alerta crítica: 0");
         lblTotalCriticos.setFont(new Font("Segoe UI", Font.BOLD, 13));
         lblTotalCriticos.setForeground(new Color(255, 100, 100)); // Rojo suave para modo oscuro
     }
@@ -136,7 +136,7 @@ public class GestionReportePanel extends JPanel {
         panelBotones.add(btnConsultarStock);
         
         panel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createTitledBorder("Herramientas de Consulta"),
+            BorderFactory.createTitledBorder("Herramientas de consulta"),
             new EmptyBorder(5, 5, 5, 5)
         ));
         
@@ -148,7 +148,7 @@ public class GestionReportePanel extends JPanel {
 
     private JPanel crearPanelResumenInferior() {
         JPanel panelResumen = new JPanel(new FlowLayout(FlowLayout.RIGHT, 25, 10));
-        panelResumen.setBorder(BorderFactory.createTitledBorder("Resumen de Inventario"));
+        panelResumen.setBorder(BorderFactory.createTitledBorder("Resumen de inventario"));
         
         panelResumen.add(lblTotalProductos);
         panelResumen.add(lblTotalCriticos);
@@ -172,9 +172,9 @@ public class GestionReportePanel extends JPanel {
         List<String> columnas = new ArrayList<>();
         columnas.add("ID Ítem");
         columnas.add("Nombre / Descripción");
-        columnas.add("Stock Total");
+        columnas.add("Stock total");
         columnas.addAll(sucursales); // Metemos las sucursales al medio
-        columnas.add("Mínimo Recomendado");
+        columnas.add("Mínimo recomendado");
         columnas.add("Estado");
 
         // 3. Reseteamos el modelo de datos de la tabla
@@ -208,7 +208,7 @@ public class GestionReportePanel extends JPanel {
 
         // Actualizamos las etiquetas inferiores de control
         lblTotalProductos.setText("Total Productos Ofertados: " + totalProductos);
-        lblTotalCriticos.setText("En Alerta Crítica: " + contadorCriticos);
+        lblTotalCriticos.setText("En alerta crítica: " + contadorCriticos);
 
         if (datosReporte.isEmpty()) {
             JOptionPane.showMessageDialog(this, "No se encontraron ítems de stock para reportar.", "Información", JOptionPane.INFORMATION_MESSAGE);

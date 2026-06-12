@@ -29,7 +29,7 @@ public class RecepcionMercaderiaPanel extends JPanel {
     public RecepcionMercaderiaPanel() {
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        modeloTablaOC = new DefaultTableModel(new String[]{"ID", "Proveedor", "Fecha Emisión", "Total", "Estado"}, 0);
+        modeloTablaOC = new DefaultTableModel(new String[]{"ID", "Proveedor", "Fecha emisión", "Total", "Estado"}, 0);
         tablaOC = new JTable(modeloTablaOC);
         tablaOC.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tablaOC.getSelectionModel().addListSelectionListener(e -> {
@@ -38,7 +38,7 @@ public class RecepcionMercaderiaPanel extends JPanel {
             }
         });
 
-        modeloTablaLineas = new DefaultTableModel(new String[]{"SKU", "Producto", "Cant. Pedida", "Cant. a Recibir"}, 0) {
+        modeloTablaLineas = new DefaultTableModel(new String[]{"SKU", "Producto", "Cant. pedida", "Cant. a recibir"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return column == 3; }
             @Override
@@ -55,7 +55,7 @@ public class RecepcionMercaderiaPanel extends JPanel {
         
         add(splitPane, BorderLayout.CENTER);
         
-        btnConfirmarRecepcion = new JButton("📦 Confirmar Recepción y Actualizar Stock");
+        btnConfirmarRecepcion = new JButton("📦 Confirmar recepción y actualizar stock");
         btnConfirmarRecepcion.setBackground(new Color(41, 128, 185));
         btnConfirmarRecepcion.setForeground(Color.WHITE);
         btnConfirmarRecepcion.addActionListener(e -> confirmarRecepcion());
