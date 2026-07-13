@@ -1,7 +1,6 @@
 package vista;
-
 import modelo.Usuario;
-import modelo.SesionUsuario; // Para saber quién está operando
+import modelo.SesionUsuario;
 import persistencia.UsuarioDAO;
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
@@ -12,6 +11,8 @@ import java.util.List;
 
 public class GestionUsuarioPanel extends JPanel { 
 
+    // Variables y Constructor
+
     private JTextField txtId, txtNombre, txtUsuario;
     private JPasswordField txtContrasena;
     private JComboBox<String> cmbRol;
@@ -19,14 +20,11 @@ public class GestionUsuarioPanel extends JPanel {
     private JTable tablaUsuarios;
     private DefaultTableModel tableModel;
     private final UsuarioDAO usuarioDAO = new UsuarioDAO();
-    
-    // CORRECCIÓN 1: Roles estandarizados para que coincidan con la DB y MainFrame
     private static final String[] ROLES = {"VENDEDOR", "GERENTE", "ADMIN"};
     
     public GestionUsuarioPanel() { 
         setLayout(new BorderLayout(15, 15));
         setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-
         inicializarComponentes();
         configurarTabla();
         add(crearPanelSuperior(), BorderLayout.NORTH);
@@ -43,11 +41,9 @@ public class GestionUsuarioPanel extends JPanel {
         txtContrasena = new JPasswordField(20);
         cmbRol = new JComboBox<>(ROLES);
         txtId.setEditable(false);
-
         btnGuardar = new JButton("💾 Guardar/actualizar");
         btnEliminar = new JButton("🗑️ Eliminar usuario");
         btnLimpiar = new JButton("✨ Limpiar/nuevo");
-
         btnEliminar.setEnabled(false); 
     }
 
@@ -61,30 +57,24 @@ public class GestionUsuarioPanel extends JPanel {
             TitledBorder.TOP, 
             new Font("SansSerif", Font.BOLD, 14)
         ));
-        
         panelCampos.add(new JLabel("ID (Auto):"));
         panelCampos.add(txtId);
         panelCampos.add(new JLabel("Rol:"));
         panelCampos.add(cmbRol);
-        
         panelCampos.add(new JLabel("Nombre completo:"));
         panelCampos.add(txtNombre);
         panelCampos.add(new JLabel("Usuario (login):"));
         panelCampos.add(txtUsuario);
-        
         panelCampos.add(new JLabel("Contraseña:"));
         panelCampos.add(txtContrasena);
         panelCampos.add(new JLabel("")); 
         panelCampos.add(new JLabel("")); 
-
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.CENTER, 25, 10));
         panelBotones.add(btnGuardar);
         panelBotones.add(btnEliminar);
         panelBotones.add(btnLimpiar);
-
         panelPrincipal.add(panelCampos, BorderLayout.NORTH);
         panelPrincipal.add(panelBotones, BorderLayout.CENTER);
-        
         return panelPrincipal;
     }
 
@@ -98,7 +88,6 @@ public class GestionUsuarioPanel extends JPanel {
             }
         };
         tablaUsuarios = new JTable(tableModel);
-        
         tablaUsuarios.getColumnModel().getColumn(0).setPreferredWidth(50);
         tablaUsuarios.getColumnModel().getColumn(0).setMaxWidth(70);
         tablaUsuarios.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -108,7 +97,6 @@ public class GestionUsuarioPanel extends JPanel {
         btnGuardar.addActionListener(e -> guardarOActualizarUsuario());
         btnEliminar.addActionListener(e -> eliminarUsuario());
         btnLimpiar.addActionListener(e -> limpiarCampos());
-        
         tablaUsuarios.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 if (tablaUsuarios.getSelectedRow() != -1) {
@@ -156,20 +144,14 @@ public class GestionUsuarioPanel extends JPanel {
 
     private void eliminarUsuario() {
         if (txtId.getText().isEmpty()) return;
-
         int idAEliminar = Integer.parseInt(txtId.getText());
-        
-        // CORRECCIÓN 2: Protección de Seguridad
-        // Evitamos que el usuario logueado se elimine a sí mismo
         if (idAEliminar == SesionUsuario.getUsuario().getId()) {
             JOptionPane.showMessageDialog(this, "No puedes eliminar tu propia cuenta de usuario.", "Acción denegada", JOptionPane.ERROR_MESSAGE);
             return;
         }
-
         int confirm = JOptionPane.showConfirmDialog(this, 
             "¿Está seguro de eliminar este usuario?\nEsta acción es irreversible.", 
             "Confirmar eliminación", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-
         if (confirm == JOptionPane.YES_OPTION) {
             try {
                 if (usuarioDAO.eliminar(idAEliminar)) {
@@ -188,24 +170,18 @@ public class GestionUsuarioPanel extends JPanel {
         String userStr = txtUsuario.getText().trim();
         String pass = new String(txtContrasena.getPassword());
         String rol = cmbRol.getSelectedItem().toString();
-        
         if (nombre.isEmpty() || userStr.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Nombre y Usuario son obligatorios.");
             return;
         }
-
         int id = txtId.getText().isEmpty() ? 0 : Integer.parseInt(txtId.getText());
-        
-        // Si es nuevo (ID 0), la contraseña es obligatoria
         if (id == 0 && pass.isEmpty()) {
             JOptionPane.showMessageDialog(this, "La contraseña es obligatoria para nuevos usuarios.");
             return;
         }
-
         Usuario nuevoU = new Usuario(id, nombre, rol);
         nuevoU.setUsuario(userStr);
         nuevoU.setPassword(pass);
-
         try {
             if (usuarioDAO.guardarOActualizar(nuevoU)) {
                 JOptionPane.showMessageDialog(this, "¡Listo!");

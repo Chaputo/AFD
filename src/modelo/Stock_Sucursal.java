@@ -1,6 +1,7 @@
 package modelo;
-
 import java.time.LocalDateTime;
+
+//Definición de la Clase y Atributos
 
 public class Stock_Sucursal {
     private int idStock;
@@ -8,6 +9,8 @@ public class Stock_Sucursal {
     private int idSucursal;
     private int cantidad;
     private LocalDateTime ultimaActualizacion;
+
+    //Definición de los constructores
 
     public Stock_Sucursal() {}
 
@@ -19,18 +22,16 @@ public class Stock_Sucursal {
         this.ultimaActualizacion = ultimaActualizacion;
     }
 
+    // Metodos Getters y Setters
+
     public int getIdStock() { return idStock; }
     public void setIdStock(int idStock) { this.idStock = idStock; }
-
     public String getSkuProducto() { return skuProducto; }
     public void setSkuProducto(String skuProducto) { this.skuProducto = skuProducto; }
-
     public int getIdSucursal() { return idSucursal; }
     public void setIdSucursal(int idSucursal) { this.idSucursal = idSucursal; }
-
     public int getCantidad() { return cantidad; }
     public void setCantidad(int cantidad) { this.cantidad = cantidad; }
-
     public LocalDateTime getUltimaActualizacion() { return ultimaActualizacion; }
     public void setUltimaActualizacion(LocalDateTime ultimaActualizacion) { this.ultimaActualizacion = ultimaActualizacion; }
 }

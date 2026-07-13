@@ -1,23 +1,31 @@
 package vista;
-
 import modelo.Usuario;
-import modelo.SesionUsuario; // Importante para guardar la sesión
+import modelo.SesionUsuario;
 import persistencia.UsuarioDAO;
+import persistencia.ConexionDB;
 import javax.swing.*;
 import java.awt.*;
-import java.sql.SQLException;
+import java.sql.*;
 import com.formdev.flatlaf.FlatDarkLaf;
-import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 
 public class LoginFrame extends JFrame {
 
+    // Variables y Constructor
+
     private JTextField txtUsuario;
     private JPasswordField txtClave;
+    private JComboBox<SucursalItem> cmbSucursales;
     private JButton btnLogin;
     private static final int WIDTH = 450;
-    private static final int HEIGHT = 350; // Aumenté un poco el alto para que respire el diseño
+    private static final int HEIGHT = 400;
+    private static class SucursalItem {
+        int id;
+        String nombre;
+        public SucursalItem(int id, String nombre) { this.id = id; this.nombre = nombre; }
+        @Override public String toString() { return nombre; }
+    }
 
     public LoginFrame() {
         setTitle("AFD - Acceso al sistema");
@@ -25,24 +33,18 @@ public class LoginFrame extends JFrame {
         setLayout(new BorderLayout(10, 10)); 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null); 
-        
         txtUsuario = new JTextField(25);
         txtClave = new JPasswordField(25);
+        cmbSucursales = new JComboBox<>();
         btnLogin = new JButton("Ingresar");
-        
-        // Estilo del botón
         btnLogin.setBackground(new Color(60, 179, 113)); 
         btnLogin.setForeground(Color.WHITE);
         btnLogin.setFont(new Font("SansSerif", Font.BOLD, 14));
         btnLogin.setFocusPainted(false);
-        
-        // Título
         JLabel lblTituloPrincipal = new JLabel("🔐 AFD  | ACCESO", SwingConstants.CENTER);
         lblTituloPrincipal.setFont(new Font("SansSerif", Font.BOLD, 28));
         lblTituloPrincipal.setBorder(new EmptyBorder(20, 0, 10, 0));
         add(lblTituloPrincipal, BorderLayout.NORTH);
-
-        // Panel de Credenciales
         JPanel panelCredenciales = new JPanel(new GridBagLayout());
         panelCredenciales.setBorder(BorderFactory.createTitledBorder(
             BorderFactory.createLineBorder(Color.GRAY), 
@@ -51,56 +53,65 @@ public class LoginFrame extends JFrame {
             TitledBorder.TOP, 
             new Font("SansSerif", Font.BOLD, 14), 
             Color.WHITE));
-
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
-
-        gbc.gridx = 0; gbc.gridy = 0; gbc.anchor = GridBagConstraints.WEST;
+        gbc.gridx = 0; gbc.gridy = 0; gbc.anchor = GridBagConstraints.WEST; gbc.weightx = 0;
         panelCredenciales.add(new JLabel("👤 Usuario:"), gbc);
-        
         gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
         panelCredenciales.add(txtUsuario, gbc);
-
         gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0;
         panelCredenciales.add(new JLabel("🔑 Clave:"), gbc);
-
         gbc.gridx = 1; gbc.gridy = 1; 
         panelCredenciales.add(txtClave, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 2; 
+        gbc.gridx = 0; gbc.gridy = 2; gbc.weightx = 0;
+        panelCredenciales.add(new JLabel("📍 Sucursal:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 2; gbc.weightx = 1.0;
+        panelCredenciales.add(cmbSucursales, gbc);
+        gbc.gridx = 0; gbc.gridy = 3; 
         gbc.gridwidth = 2; 
+        gbc.weightx = 0;
         btnLogin.setPreferredSize(new Dimension(300, 40)); 
         panelCredenciales.add(btnLogin, gbc);
-
         add(panelCredenciales, BorderLayout.CENTER);
-
-        // Listeners
+        cargarSucursalesDB();
         btnLogin.addActionListener(e -> intentarLogin());
-        
-        // Hacer que el botón "Ingresar" sea el predeterminado al presionar Enter
         this.getRootPane().setDefaultButton(btnLogin);
     }
  
+    private void cargarSucursalesDB() {
+        try (Connection conn = ConexionDB.getConnection();
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT id_sucursal, nombre FROM sucursales ORDER BY nombre")) {
+            while (rs.next()) {
+                cmbSucursales.addItem(new SucursalItem(rs.getInt("id_sucursal"), rs.getString("nombre")));
+            }
+        } catch (SQLException ex) {
+            System.err.println("Error al poblar combo de sucursales en Login: " + ex.getMessage());
+        }
+        if (cmbSucursales.getItemCount() == 0) {
+            cmbSucursales.addItem(new SucursalItem(1, "Bella Vista (Casa Matriz)"));
+        }
+    }
+
     private void intentarLogin() {
         String usuarioStr = txtUsuario.getText().trim();
         String claveStr = new String(txtClave.getPassword()); 
-
         if (usuarioStr.isEmpty() || claveStr.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Por favor complete todos los campos.");
             return;
         }
-
+        SucursalItem sucursalSeleccionada = (SucursalItem) cmbSucursales.getSelectedItem();
+        if (sucursalSeleccionada == null) {
+            JOptionPane.showMessageDialog(this, "Por favor seleccione una sucursal de trabajo.");
+            return;
+        }
         try {
             UsuarioDAO dao = new UsuarioDAO();
             Usuario user = dao.autenticar(usuarioStr, claveStr);
-
             if (user != null) {
-                // --- INTEGRACIÓN CON SESIÓN ---
-                SesionUsuario.setUsuario(user); // Guardamos al usuario y su ROL globalmente
-                
-                // Abrimos el frame principal (Asegúrate de que tu clase se llame MainFrame o VistaPrincipal)
-                new MainFrame().setVisible(true); 
+                SesionUsuario.setUsuario(user);
+                new MainFrame(sucursalSeleccionada.id).setVisible(true); 
                 this.dispose(); 
             } else {
                 JOptionPane.showMessageDialog(this, 
@@ -121,7 +132,6 @@ public class LoginFrame extends JFrame {
 
     public static void main(String[] args) {
         try {
-            // Configuraciones de FlatLaf
             UIManager.put("Button.arc", 18); 
             UIManager.put("Component.arc", 12); 
             UIManager.put("TextComponent.arc", 12);

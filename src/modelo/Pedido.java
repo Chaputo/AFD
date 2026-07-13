@@ -1,12 +1,9 @@
 package modelo;
-
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-/**
- * Clase que representa un pedido en el sistema.
- * Actualizada para soportar método de pago, estados automáticos y nombres de relaciones.
- */
+//Definición de la Clase y Atributos
+
 public class Pedido {
     private int id;
     private int idCliente;
@@ -15,17 +12,15 @@ public class Pedido {
     private LocalDateTime fechaHora;
     private double total;
     private String estado;
-    private String tipoPago; // NUEVO: Para diferenciar Efectivo, Pedidos Ya, etc.
-    
-    // NUEVOS ATRIBUTOS: Para mostrar texto real en las vistas (JTable) en lugar de IDs numéricos
+    private String tipoPago;
     private String nombreCliente;
     private String nombreUsuario;
 
-    // Constructor vacío
+    //Definición de los constructores
+
     public Pedido() {
     }
 
-    // Constructor completo original
     public Pedido(int id, int idCliente, int idUsuario, int idSucursal, LocalDateTime fechaHora, double total, String estado, String tipoPago) {
         this.id = id;
         this.idCliente = idCliente;
@@ -37,7 +32,6 @@ public class Pedido {
         this.tipoPago = tipoPago;
     }
 
-    // NUEVO: Constructor extendido con nombres (útil para cuando listamos desde el DAO con JOINs)
     public Pedido(int id, int idCliente, String nombreCliente, int idUsuario, String nombreUsuario, int idSucursal, LocalDateTime fechaHora, double total, String estado, String tipoPago) {
         this.id = id;
         this.idCliente = idCliente;
@@ -51,7 +45,8 @@ public class Pedido {
         this.tipoPago = tipoPago;
     }
 
-    // --- Getters ---
+    // Metodos Getters y Setters
+
     public int getId() { return id; }
     public int getIdCliente() { return idCliente; }
     public int getIdUsuario() { return idUsuario; }
@@ -60,29 +55,20 @@ public class Pedido {
     public double getTotal() { return total; }
     public String getEstado() { return estado; }
     public String getTipoPago() { return tipoPago; }
-    
-    // Getters de los nuevos atributos
     public String getNombreCliente() { return nombreCliente; }
     public String getNombreUsuario() { return nombreUsuario; }
-
-    // --- Setters ---
     public void setId(int id) { this.id = id; } 
-    
-    // Para compatibilidad con la DB
     public void setFecha(Timestamp timestamp) { 
         if (timestamp != null) {
             this.fechaHora = timestamp.toLocalDateTime();
         }
     }
-
     public void setFechaPedido(LocalDateTime fechaHora) { 
         this.fechaHora = fechaHora; 
     }
-
     public void setFechaHora(LocalDateTime fechaHora) { 
         this.fechaHora = fechaHora; 
     }
-
     public void setIdCliente(int idCliente) { this.idCliente = idCliente; }
     public void setIdUsuario(int idUsuario) { this.idUsuario = idUsuario; }
     public void setIdSucursal(int idSucursal) { this.idSucursal = idSucursal; }
@@ -91,8 +77,6 @@ public class Pedido {
     public void setEstadoEntrega(String estado) { this.estado = estado; } 
     public void setEstado(String estado) { this.estado = estado; }
     public void setTipoPago(String tipoPago) { this.tipoPago = tipoPago; }
-    
-    // Setters de los nuevos atributos
     public void setNombreCliente(String nombreCliente) { this.nombreCliente = nombreCliente; }
     public void setNombreUsuario(String nombreUsuario) { this.nombreUsuario = nombreUsuario; }
 }

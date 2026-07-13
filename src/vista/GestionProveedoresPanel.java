@@ -10,6 +10,8 @@ import java.sql.SQLException;
 import java.util.List;
 
 public class GestionProveedoresPanel extends JPanel {
+
+    // Variables y Constructor
     
     private JTextField txtId, txtNombre, txtCuit, txtContacto; 
     private JButton btnGuardar, btnEliminar, btnLimpiar;
@@ -19,30 +21,20 @@ public class GestionProveedoresPanel extends JPanel {
 
     public GestionProveedoresPanel() {
         proveedorDAO = new ProveedorDAO();
-        
-        // Layout principal simétrico
         setLayout(new BorderLayout(15, 15)); 
         setBorder(new EmptyBorder(15, 15, 15, 15));
-        
         inicializarComponentes();
-        
-        // Estructura de tabla limpia y nativa según tu base de datos
         tableModel = new DefaultTableModel(new Object[]{"ID", "Nombre / Razón social", "CUIT", "Contacto (teléfono/email)"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
         };
-        
         tablaProveedores = new JTable(tableModel);
-        tablaProveedores.setRowHeight(22); // Altura de celda estándar para tablas oscuras de tu app
+        tablaProveedores.setRowHeight(22);
         tablaProveedores.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-
         JScrollPane scrollPane = new JScrollPane(tablaProveedores);
         scrollPane.setBorder(BorderFactory.createTitledBorder("Listado de proveedores"));
-
-        // Acoplamos los paneles respetando el flujo de la app
         add(crearPanelSuperior(), BorderLayout.NORTH);
         add(scrollPane, BorderLayout.CENTER);
-        
         agregarListeners();
         cargarProveedores();
         txtId.setEditable(false);
@@ -50,64 +42,46 @@ public class GestionProveedoresPanel extends JPanel {
     }
     
     private void inicializarComponentes() {
-        // Inicialización de campos limpia (FlatLaf se encarga del look dark de forma nativa)
         txtId = new JTextField();
         txtNombre = new JTextField();
         txtCuit = new JTextField();
         txtContacto = new JTextField();
-        
-        // Botonera centralizada
         btnGuardar = new JButton("Guardar / actualizar");
-        btnEliminar = new JButton("Eliminar proveedor"); // CORREGIDO: Texto conceptual unificado
+        btnEliminar = new JButton("Eliminar proveedor");
         btnLimpiar = new JButton("Limpiar / nuevo");
     }
 
     private JPanel crearPanelSuperior() {
         JPanel panelNorte = new JPanel(new BorderLayout(0, 15));
-
-        // Grid de 2 filas y 4 columnas idéntico al panel de Clientes
         JPanel panelFormulario = new JPanel(new GridLayout(2, 4, 15, 10));
         panelFormulario.setBorder(BorderFactory.createTitledBorder("Detalles del proveedor"));
-
         Font labelFont = new Font("SansSerif", Font.PLAIN, 12);
-        
-        // Fila 1
         JLabel lblId = new JLabel("ID (Auto):");
         lblId.setFont(labelFont);
         panelFormulario.add(lblId);
         panelFormulario.add(txtId);
-        
         JLabel lblNombre = new JLabel("Nombre completo:");
         lblNombre.setFont(labelFont);
         panelFormulario.add(lblNombre);
         panelFormulario.add(txtNombre);
-        
-        // Fila 2 - CORREGIDO: Etiquetas limpias basadas en las columnas de tu DB
         JLabel lblCuit = new JLabel("CUIT:");
         lblCuit.setFont(labelFont);
         panelFormulario.add(lblCuit);
         panelFormulario.add(txtCuit);
-        
         JLabel lblContacto = new JLabel("Dirección / contacto:");
         lblContacto.setFont(labelFont);
         panelFormulario.add(lblContacto);
         panelFormulario.add(txtContacto);
-        
-        // Panel horizontal para albergar la botonera al centro
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 5));
-        
         Dimension buttonSize = new Dimension(150, 30);
         btnGuardar.setPreferredSize(buttonSize);
         btnEliminar.setPreferredSize(buttonSize);
         btnLimpiar.setPreferredSize(buttonSize);
-        
         panelBotones.add(btnGuardar);
         panelBotones.add(btnEliminar);
         panelBotones.add(btnLimpiar);
-        
         panelNorte.add(panelFormulario, BorderLayout.CENTER);
         panelNorte.add(panelBotones, BorderLayout.SOUTH);
-        
         return panelNorte;
     }
     
@@ -115,7 +89,6 @@ public class GestionProveedoresPanel extends JPanel {
         btnGuardar.addActionListener(e -> guardarOActualizarProveedor());
         btnEliminar.addActionListener(e -> eliminarProveedor());
         btnLimpiar.addActionListener(e -> limpiarCampos());
-        
         tablaProveedores.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 int fila = tablaProveedores.getSelectedRow();
@@ -141,7 +114,6 @@ public class GestionProveedoresPanel extends JPanel {
         txtNombre.setText(String.valueOf(tableModel.getValueAt(fila, 1)));
         txtCuit.setText(String.valueOf(tableModel.getValueAt(fila, 2)));
         txtContacto.setText(String.valueOf(tableModel.getValueAt(fila, 3)));
-        
         txtCuit.setEditable(false); 
         btnEliminar.setEnabled(true);
     }
@@ -163,12 +135,10 @@ public class GestionProveedoresPanel extends JPanel {
         String nombre = txtNombre.getText().trim();
         String cuit = txtCuit.getText().trim();
         String contacto = txtContacto.getText().trim();
-        
         if (nombre.isEmpty() || cuit.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Nombre y CUIT son obligatorios.", "Advertencia", JOptionPane.WARNING_MESSAGE);
             return;
         }
-
         try {
             Proveedor proveedor;
             if (txtId.getText().isEmpty()) {
@@ -177,9 +147,7 @@ public class GestionProveedoresPanel extends JPanel {
                 int id = Integer.parseInt(txtId.getText());
                 proveedor = new Proveedor(id, nombre, cuit, contacto);
             }
-            
             boolean exito = proveedorDAO.guardarOActualizar(proveedor);
-
             if (exito) {
                 JOptionPane.showMessageDialog(this, "Proveedor guardado con éxito.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
                 limpiarCampos();
@@ -187,7 +155,6 @@ public class GestionProveedoresPanel extends JPanel {
             } else {
                 JOptionPane.showMessageDialog(this, "No se pudo guardar/actualizar el proveedor.", "Error", JOptionPane.ERROR_MESSAGE);
             }
-
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(this, "Error de base de datos. Asegúrese de que el CUIT no esté duplicado.", "Error", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
@@ -201,10 +168,8 @@ public class GestionProveedoresPanel extends JPanel {
             JOptionPane.showMessageDialog(this, "Seleccione un proveedor para eliminar.", "Advertencia", JOptionPane.WARNING_MESSAGE);
             return;
         }
-
         int id = Integer.parseInt(txtId.getText());
         int confirm = JOptionPane.showConfirmDialog(this, "¿Está seguro de eliminar al proveedor: " + txtNombre.getText() + "?", "Confirmar eliminación", JOptionPane.YES_NO_OPTION);
-
         if (confirm == JOptionPane.YES_OPTION) {
             try {
                 if (proveedorDAO.eliminar(id)) {

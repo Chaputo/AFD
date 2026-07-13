@@ -4,22 +4,30 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class ConexionDB {
+
+    // Credenciales
     
     private static final String DB_NAME = "gestioncomercialdb"; 
     private static final String URL = "jdbc:mysql://localhost:3306/" + DB_NAME; 
-    
     private static final String USUARIO = "root"; 
     private static final String CLAVE = "";
-    private static final String DRIVER = "com.mysql.cj.jdbc.Driver"; 
+    private static final String DRIVER = "com.mysql.cj.jdbc.Driver";
+
+    // Método principal
 
     public static Connection getConnection() {
-        try {
-            Class.forName(DRIVER);
-            System.out.println("Intentando conectar a la DB...");
-            
-            Connection conn = DriverManager.getConnection(URL, USUARIO, CLAVE);
-            conn.setAutoCommit(true); 
 
+        // Proceso de conexión
+
+        try {
+            // Cargar el driver JDBC
+            Class.forName(DRIVER); 
+            System.out.println("Intentando conectar a la DB...");
+            // Abrir línea de conexión
+            Connection conn = DriverManager.getConnection(URL, USUARIO, CLAVE);
+            // Configurar la conexión
+            conn.setAutoCommit(true);
+            // Confirmar la conexión
             System.out.println("Conexión exitosa a " + DB_NAME + "!");
             return conn;
             

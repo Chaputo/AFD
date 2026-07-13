@@ -1,6 +1,7 @@
 package modelo;
-
 import java.time.LocalDateTime;
+
+//Definición de la Clase y Atributos
 
 public class MovimientoStock {
    private int id;
@@ -10,6 +11,8 @@ public class MovimientoStock {
    private String skuProducto;
    private Integer idOcRelacionada;
    private int idSucursal;
+
+   //Definición de los constructores
 
    public MovimientoStock() {
    }
@@ -33,6 +36,8 @@ public class MovimientoStock {
       this.idSucursal = idSucursal; //
    }
 
+   // Metodos Getters y Setters
+
    public int getId() { return this.id; }
    public LocalDateTime getFecha() { return this.fecha; }
    public String getTipo() { return this.tipo; }
@@ -40,7 +45,6 @@ public class MovimientoStock {
    public String getSkuProducto() { return this.skuProducto; }
    public Integer getIdOcRelacionada() { return this.idOcRelacionada; }
    public int getIdSucursal() { return this.idSucursal; } //
-
    public void setId(int id) { this.id = id; }
    public void setFecha(LocalDateTime fecha) { this.fecha = fecha; }
    public void setTipo(String tipo) { this.tipo = tipo; }

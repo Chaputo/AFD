@@ -1,5 +1,4 @@
 package vista;
-
 import modelo.Cliente;
 import modelo.Pedido;
 import modelo.DetallePedido;
@@ -9,7 +8,6 @@ import modelo.SesionUsuario;
 import persistencia.ClienteDAO;
 import persistencia.PedidoDAO;
 import persistencia.ProductoDAO;
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
@@ -23,10 +21,11 @@ import java.util.List;
 
 public class GestionPedidosPanel extends JPanel {
 
+    // Variables y Constructor
+
     private final ClienteDAO clienteDAO = new ClienteDAO();
     private final PedidoDAO pedidoDAO = new PedidoDAO();
     private final ProductoDAO productoDAO = new ProductoDAO();
-    
     private JTextField txtBuscarCliente, txtNombreCliente, txtIdCliente;
     private JTextField txtNombreProducto, txtCantidadProducto;
     private JButton btnAgregar, btnQuitar, btnMas, btnMenos;
@@ -36,40 +35,30 @@ public class GestionPedidosPanel extends JPanel {
     private DefaultTableModel modelCarrito;
     private JLabel lblTotal;
     private JButton btnFinalizarVenta;
-    
-    // NUEVO: Selector de método de pago
     private JComboBox<String> comboMetodoPago;
-
     private Cliente clienteActual = null;
     private Producto productoSeleccionado = null;
     private double totalVenta = 0.0;
-    
-    private int idUsuarioActual;
     private int idSucursalActual;
+    private int idUsuarioActual;
     private final int ID_CLIENTE_GENERICO = 1;
 
-    public GestionPedidosPanel() {
+    public GestionPedidosPanel(int idSucursal) {
         Usuario actual = SesionUsuario.getUsuario();
         this.idUsuarioActual = (actual != null) ? actual.getId() : 1;
-        this.idSucursalActual = 1; 
-
+        this.idSucursalActual = idSucursal; 
         setLayout(new BorderLayout(10, 10));
-        
         btnAgregar = new JButton("Agregar");
         btnQuitar = new JButton("Eliminar seleccionado");
         btnMas = new JButton("+");
         btnMenos = new JButton("-");
         txtCantidadProducto = new JTextField("1", 3);
         txtCantidadProducto.setHorizontalAlignment(JTextField.CENTER);
-
         add(crearPanelCliente(), BorderLayout.NORTH);
-        
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, crearPanelProductos(), crearPanelCarrito());
         splitPane.setResizeWeight(0.4); 
         add(splitPane, BorderLayout.CENTER);
-        
         add(crearPanelFooter(), BorderLayout.SOUTH);
-        
         agregarListeners();
         limpiarCampos();
     }
@@ -77,41 +66,33 @@ public class GestionPedidosPanel extends JPanel {
     private JPanel crearPanelCliente() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         panel.setBorder(BorderFactory.createTitledBorder("Información del cliente"));
-
         txtBuscarCliente = new JTextField(12);
         txtNombreCliente = new JTextField(18);
         txtNombreCliente.setEditable(false);
         txtIdCliente = new JTextField(4);
         txtIdCliente.setEditable(false);
-
         panel.add(new JLabel("Buscar (Tel/Nom):"));
         panel.add(txtBuscarCliente);
         panel.add(new JLabel("ID:"));
         panel.add(txtIdCliente);
         panel.add(new JLabel("Cliente:"));
         panel.add(txtNombreCliente);
-
         return panel;
     }
 
     private JPanel crearPanelProductos() {
         JPanel panel = new JPanel(new BorderLayout(5, 5));
         panel.setBorder(BorderFactory.createTitledBorder("Inventario de productos"));
-
         txtNombreProducto = new JTextField(20);
         txtNombreProducto.setToolTipText("Escribe para filtrar productos...");
-
         DefaultTableModel modeloBase = new DefaultTableModel(new Object[]{"SKU", "Nombre", "Precio"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
         };
-
         tablaBusqueda = new JTable(modeloBase);
         sorter = new TableRowSorter<>(modeloBase);
         tablaBusqueda.setRowSorter(sorter);
-        
         cargarTodosLosProductos(modeloBase);
-
         txtNombreProducto.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             public void insertUpdate(javax.swing.event.DocumentEvent e) { filtrar(); }
             public void removeUpdate(javax.swing.event.DocumentEvent e) { filtrar(); }
@@ -121,7 +102,6 @@ public class GestionPedidosPanel extends JPanel {
                 sorter.setRowFilter(texto.trim().isEmpty() ? null : RowFilter.regexFilter("(?i)" + texto, 1));
             }
         });
-
         tablaBusqueda.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -137,17 +117,14 @@ public class GestionPedidosPanel extends JPanel {
                 }
             }
         });
-
         panel.add(txtNombreProducto, BorderLayout.NORTH);
         panel.add(new JScrollPane(tablaBusqueda), BorderLayout.CENTER);
-
         JPanel panelInferior = new JPanel(new FlowLayout(FlowLayout.CENTER));
         panelInferior.add(new JLabel("Cant:"));
         panelInferior.add(btnMenos);
         panelInferior.add(txtCantidadProducto);
         panelInferior.add(btnMas);
         panelInferior.add(btnAgregar);
-        
         panel.add(panelInferior, BorderLayout.SOUTH);
         return panel;
     }
@@ -157,48 +134,36 @@ public class GestionPedidosPanel extends JPanel {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
         };
-
         tablaCarrito = new JTable(modelCarrito);
         tablaCarrito.getColumnModel().getColumn(0).setMinWidth(0);
         tablaCarrito.getColumnModel().getColumn(0).setMaxWidth(0);
-
         JPanel panelSur = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         panelSur.add(btnQuitar);
-
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createTitledBorder("Detalle de la venta"));
         panel.add(new JScrollPane(tablaCarrito), BorderLayout.CENTER);
         panel.add(panelSur, BorderLayout.SOUTH);
-
         return panel;
     }
-
     private JPanel crearPanelFooter() {
         JPanel panel = new JPanel(new BorderLayout());
         lblTotal = new JLabel("TOTAL: $0.00", SwingConstants.RIGHT);
         lblTotal.setFont(new Font("SansSerif", Font.BOLD, 22));
-        
-        // NUEVO: Implementación del selector de pago
         String[] metodos = {"Efectivo", "Débito", "Crédito", "Mercado Pago", "Pedidos Ya"};
         comboMetodoPago = new JComboBox<>(metodos);
         comboMetodoPago.setFont(new Font("SansSerif", Font.PLAIN, 14));
         comboMetodoPago.setPreferredSize(new Dimension(150, 35));
-
         btnFinalizarVenta = new JButton("Finalizar venta");
         btnFinalizarVenta.setPreferredSize(new Dimension(250, 45));
         btnFinalizarVenta.setBackground(new Color(40, 120, 200));
         btnFinalizarVenta.setForeground(Color.WHITE);
         btnFinalizarVenta.setFont(new Font("SansSerif", Font.BOLD, 16));
-
-        // Panel para agrupar Método de Pago y Total
         JPanel panelDerecho = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 5));
         panelDerecho.add(new JLabel("Método de pago:"));
         panelDerecho.add(comboMetodoPago);
         panelDerecho.add(lblTotal);
-
         panel.add(panelDerecho, BorderLayout.CENTER);
         panel.add(btnFinalizarVenta, BorderLayout.SOUTH);
-
         return panel;
     }
 
@@ -206,10 +171,8 @@ public class GestionPedidosPanel extends JPanel {
         btnAgregar.addActionListener(e -> agregarAlCarrito());
         btnQuitar.addActionListener(e -> quitarDelCarrito());
         btnFinalizarVenta.addActionListener(e -> intentarFinalizarVenta());
-        
         btnMas.addActionListener(e -> incrementarCantidad(1));
         btnMenos.addActionListener(e -> incrementarCantidad(-1));
-
         txtBuscarCliente.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) { buscarCliente(); }
@@ -238,16 +201,13 @@ public class GestionPedidosPanel extends JPanel {
             int filaModelo = tablaBusqueda.convertRowIndexToModel(filaSeleccionada);
             seleccionarProductoDesdeTabla((DefaultTableModel) tablaBusqueda.getModel(), filaModelo);
         }
-
         if (productoSeleccionado == null) {
             JOptionPane.showMessageDialog(this, "Por favor, seleccioná un producto.");
             return;
         }
-
         try {
             int cant = Integer.parseInt(txtCantidadProducto.getText().trim());
             if (cant <= 0) throw new NumberFormatException();
-
             boolean existe = false;
             for (int i = 0; i < modelCarrito.getRowCount(); i++) {
                 String skuEnCarrito = modelCarrito.getValueAt(i, 1).toString();
@@ -261,7 +221,6 @@ public class GestionPedidosPanel extends JPanel {
                     break;
                 }
             }
-
             if (!existe) {
                 double subtotal = productoSeleccionado.getPrecio() * cant;
                 modelCarrito.addRow(new Object[]{
@@ -301,31 +260,26 @@ public class GestionPedidosPanel extends JPanel {
 
     private void buscarCliente() {
     String termino = txtBuscarCliente.getText().trim();
-    
-    // SI EL BUSCADOR ESTÁ VACÍO: Volvemos al estado por defecto "Sin cliente"
     if (termino.isEmpty()) {
         clienteActual = null;
         txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
         txtNombreCliente.setText("Sin cliente");
         return;
     }
-    
-    try {
-        List<Cliente> encontrado = clienteDAO.buscar(termino);
-        if (!encontrado.isEmpty()) {
-            clienteActual = encontrado.get(0);
-            txtIdCliente.setText(String.valueOf(clienteActual.getId()));
-            txtNombreCliente.setText(clienteActual.getNombre());
-        } else {
-            // SI ESCRIBIÓ ALGO QUE NO EXISTE: También podés dejar "Sin cliente" o lo que prefieras
-            clienteActual = null;
-            txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
-            txtNombreCliente.setText("Sin cliente"); 
+        try {
+            List<Cliente> encontrado = clienteDAO.buscar(termino);
+            if (!encontrado.isEmpty()) {
+                clienteActual = encontrado.get(0);
+                txtIdCliente.setText(String.valueOf(clienteActual.getId()));
+                txtNombreCliente.setText(clienteActual.getNombre());
+            } else {
+                clienteActual = null;
+                txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
+                txtNombreCliente.setText("Sin cliente"); 
+            } } catch (SQLException e) { 
+            e.printStackTrace(); 
         }
-    } catch (SQLException e) { 
-        e.printStackTrace(); 
     }
-}
 
     private void intentarFinalizarVenta() {
         if (modelCarrito.getRowCount() == 0) {
@@ -341,12 +295,8 @@ public class GestionPedidosPanel extends JPanel {
     private void ejecutarTransaccionVenta() {
         try {
             int clienteId = (clienteActual != null) ? clienteActual.getId() : ID_CLIENTE_GENERICO;
-            
-            // NUEVO: Lógica de estado según el pago
             String metodoSeleccionado = comboMetodoPago.getSelectedItem().toString();
             String estadoInicial = metodoSeleccionado.equalsIgnoreCase("Pedidos Ya") ? "Pendiente" : "Finalizado";
-
-            // Creamos el pedido con el nuevo atributo de pago y estado
             Pedido pedido = new Pedido();
             pedido.setIdCliente(clienteId);
             pedido.setIdUsuario(idUsuarioActual);
@@ -355,7 +305,6 @@ public class GestionPedidosPanel extends JPanel {
             pedido.setTotalPedido(totalVenta);
             pedido.setEstadoEntrega(estadoInicial);
             pedido.setTipoPago(metodoSeleccionado);
-
             List<DetallePedido> detalles = new ArrayList<>();
             for (int i = 0; i < tablaCarrito.getRowCount(); i++) {
                 String skuProd = tablaCarrito.getValueAt(i, 1).toString().trim(); 
@@ -363,12 +312,10 @@ public class GestionPedidosPanel extends JPanel {
                 double precio = Double.parseDouble(tablaCarrito.getValueAt(i, 4).toString());
                 detalles.add(new DetallePedido(0, 0, skuProd, precio, cant));
             }
-
             if (pedidoDAO.registrarVenta(pedido, detalles, idSucursalActual)) {
                 JOptionPane.showMessageDialog(this, "Venta procesada como " + estadoInicial);
                 limpiarCampos();
             }
-            
         } catch (Exception e) {
             e.printStackTrace(); 
             JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
@@ -381,20 +328,16 @@ public class GestionPedidosPanel extends JPanel {
             if (cant + delta >= 1) txtCantidadProducto.setText(String.valueOf(cant + delta));
         } catch (NumberFormatException e) { txtCantidadProducto.setText("1"); }
     }
-
     private void limpiarCampos() {
     modelCarrito.setRowCount(0);
     clienteActual = null;
     productoSeleccionado = null;
     txtBuscarCliente.setText("");
-    
-    // Ajustamos para que la pantalla inicial use tu ID 1 corporativo
     txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
     txtNombreCliente.setText("Sin cliente");
-    
     txtNombreProducto.setText("");
     txtCantidadProducto.setText("1");
-    if (comboMetodoPago != null) comboMetodoPago.setSelectedIndex(0); // Opcional: resetea el método de pago a Efectivo
+    if (comboMetodoPago != null) comboMetodoPago.setSelectedIndex(0);
     actualizarTotal();
 }
 }

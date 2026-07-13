@@ -1,5 +1,4 @@
 package vista;
-
 import modelo.Cliente;
 import persistencia.ClienteDAO;
 import javax.swing.*;
@@ -11,6 +10,8 @@ import java.sql.SQLException;
 import java.util.List;
 
 public class GestionClientesPanel extends JPanel {
+
+    // Variables y Constructor
     
     private JTextField txtId, txtNombre, txtTelefono, txtDireccion;
     private JButton btnGuardar, btnEliminar, btnLimpiar;
@@ -22,11 +23,9 @@ public class GestionClientesPanel extends JPanel {
         clienteDAO = new ClienteDAO();
         setLayout(new BorderLayout(15, 15)); 
         setBorder(new EmptyBorder(15, 15, 15, 15));
-        
         inicializarComponentes();
         add(crearPanelSuperior(), BorderLayout.NORTH);
         add(crearPanelTabla(), BorderLayout.CENTER);
-        
         agregarListeners();
         cargarClientes();
     }
@@ -37,28 +36,23 @@ public class GestionClientesPanel extends JPanel {
         txtNombre = new JTextField();
         txtTelefono = new JTextField();
         txtDireccion = new JTextField();
-        
         btnGuardar = new JButton("Guardar / actualizar");
         btnEliminar = new JButton("Eliminar cliente");
         btnLimpiar = new JButton("Limpiar / nuevo");
-
-        // Quitamos los colores hardcodeados para que FlatLaf maneje el tema oscuro
-        // Pero mantenemos fuentes para resaltar
         Font buttonFont = new Font("SansSerif", Font.BOLD, 12);
         btnGuardar.setFont(buttonFont);
         btnEliminar.setFont(buttonFont);
         btnLimpiar.setFont(buttonFont);
     }
 
+    // Creación del formulario
+
     private JPanel crearPanelSuperior() {
         JPanel panelNorte = new JPanel(new BorderLayout(20, 10));
-        
-        // Formulario (Igual al de Usuarios en image_1fe8ed.png)
         JPanel panelFormulario = new JPanel(new GridLayout(2, 4, 10, 10));
         panelFormulario.setBorder(BorderFactory.createTitledBorder(
             BorderFactory.createLineBorder(Color.GRAY), "Detalles del cliente", 
             TitledBorder.LEFT, TitledBorder.TOP));
-
         panelFormulario.add(new JLabel("ID (Auto):"));
         panelFormulario.add(txtId);
         panelFormulario.add(new JLabel("Nombre completo:"));
@@ -67,46 +61,43 @@ public class GestionClientesPanel extends JPanel {
         panelFormulario.add(txtTelefono);
         panelFormulario.add(new JLabel("Dirección:"));
         panelFormulario.add(txtDireccion);
-
-        // Botonera lateral
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         panelBotones.add(btnGuardar);
         panelBotones.add(btnEliminar);
         panelBotones.add(btnLimpiar);
-
         panelNorte.add(panelFormulario, BorderLayout.CENTER);
         panelNorte.add(panelBotones, BorderLayout.SOUTH);
-        
         return panelNorte;
     }
+
+    // Creación de la tabla
 
     private JScrollPane crearPanelTabla() {
         tableModel = new DefaultTableModel(new Object[]{"ID", "Nombre", "Teléfono", "Dirección"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
         };
-        
         tablaClientes = new JTable(tableModel);
         tablaClientes.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        
-        // Ocultar columna ID para estética, pero mantener el dato
         tablaClientes.getColumnModel().getColumn(0).setMinWidth(0);
         tablaClientes.getColumnModel().getColumn(0).setMaxWidth(0);
-
         JScrollPane scroll = new JScrollPane(tablaClientes);
         scroll.setBorder(BorderFactory.createTitledBorder("Listado de clientes"));
         return scroll;
     }
     
+    // Controladores de eventos
+
     private void agregarListeners() {
         btnGuardar.addActionListener(e -> guardarOActualizar());
         btnEliminar.addActionListener(e -> eliminar());
         btnLimpiar.addActionListener(e -> limpiarCampos());
-        
         tablaClientes.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) cargarFilaSeleccionada();
         });
     }
+
+    // Sincronizar tabla con textboxes
 
     private void cargarFilaSeleccionada() {
         int fila = tablaClientes.getSelectedRow();
@@ -117,6 +108,8 @@ public class GestionClientesPanel extends JPanel {
             txtDireccion.setText(tableModel.getValueAt(fila, 3).toString());
         }
     }
+
+    // Cargar datos desde la BD
 
     private void cargarClientes() {
         tableModel.setRowCount(0);
@@ -130,16 +123,16 @@ public class GestionClientesPanel extends JPanel {
         }
     }
 
+    // CRUD: Guardar, actualizar y eliminar
+
     private void guardarOActualizar() {
         if (txtNombre.getText().trim().isEmpty()) {
             JOptionPane.showMessageDialog(this, "El nombre es obligatorio.");
             return;
         }
-
         try {
             int id = txtId.getText().isEmpty() ? 0 : Integer.parseInt(txtId.getText());
             Cliente cliente = new Cliente(id, txtNombre.getText(), txtTelefono.getText(), txtDireccion.getText());
-            
             if (clienteDAO.guardarOActualizar(cliente)) {
                 JOptionPane.showMessageDialog(this, "Datos guardados correctamente.");
                 limpiarCampos();
@@ -152,7 +145,6 @@ public class GestionClientesPanel extends JPanel {
 
     private void eliminar() {
         if (txtId.getText().isEmpty()) return;
-        
         int resp = JOptionPane.showConfirmDialog(this, "¿Eliminar cliente?", "Confirmar", JOptionPane.YES_NO_OPTION);
         if (resp == JOptionPane.YES_OPTION) {
             try {
@@ -173,7 +165,7 @@ public class GestionClientesPanel extends JPanel {
         txtDireccion.setText("");
         tablaClientes.clearSelection();
     }
-
+    
     private void mostrarError(String mensaje, Exception e) {
         JOptionPane.showMessageDialog(this, mensaje + ": " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         e.printStackTrace();

@@ -11,6 +11,8 @@ import java.util.List;
 
 public class GestionProductosPanel extends JPanel {
 
+    // Variables y Constructor
+
     private JTextField txtSku, txtNombre, txtPrecio, txtStockMinimo, txtUnidadMedida; 
     private JButton btnGuardar, btnEliminar, btnLimpiar;
     private JTable tablaProductos;
@@ -20,27 +22,20 @@ public class GestionProductosPanel extends JPanel {
     public GestionProductosPanel() {
         productoDAO = new ProductoDAO();
         setLayout(new BorderLayout(15, 15));
-        setBorder(new EmptyBorder(15, 15, 15, 15)); // Margen externo profesional
-
+        setBorder(new EmptyBorder(15, 15, 15, 15));
         inicializarComponentes();
-        
-        // Configuración de la Tabla
         tableModel = new DefaultTableModel(
             new Object[]{"SKU", "Nombre", "Precio", "Stock mín.", "Unidad"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
         };
-        
         tablaProductos = new JTable(tableModel);
         tablaProductos.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tablaProductos.getTableHeader().setReorderingAllowed(false);
-
-        // Layout con SplitPane
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, 
                 crearPanelFormulario(), new JScrollPane(tablaProductos));
         splitPane.setDividerLocation(400); 
         add(splitPane, BorderLayout.CENTER);
-
         agregarListeners();
         cargarProductos();
     }
@@ -51,46 +46,34 @@ public class GestionProductosPanel extends JPanel {
         txtPrecio = new JTextField();
         txtStockMinimo = new JTextField();
         txtUnidadMedida = new JTextField();
-        
         btnGuardar = new JButton("Guardar / actualizar");
         btnEliminar = new JButton("Eliminar");
         btnLimpiar = new JButton("Limpiar / nuevo");
-        
-        btnEliminar.setEnabled(false); // Deshabilitado hasta seleccionar algo
+        btnEliminar.setEnabled(false);
     }
     
     private JPanel crearPanelFormulario() {
         JPanel panelPrincipal = new JPanel(new BorderLayout(10, 10));
         JPanel panelCampos = new JPanel(new GridLayout(6, 2, 8, 8));
         panelCampos.setBorder(BorderFactory.createTitledBorder("Definición de producto (maestro)"));
-        
         panelCampos.add(new JLabel("SKU (código):"));
         panelCampos.add(txtSku);
-        
         panelCampos.add(new JLabel("Nombre:"));
         panelCampos.add(txtNombre);
-        
         panelCampos.add(new JLabel("Precio venta ($):"));
         panelCampos.add(txtPrecio);
-        
         panelCampos.add(new JLabel("Stock mínimo:"));
         panelCampos.add(txtStockMinimo);
-        
         panelCampos.add(new JLabel("Unidad de medida:"));
         panelCampos.add(txtUnidadMedida);
-
-        // Panel de botones con mejor distribución
         JPanel panelBotones = new JPanel(new GridLayout(2, 1, 5, 5));
         panelBotones.add(btnGuardar);
-        
         JPanel panelAux = new JPanel(new GridLayout(1, 2, 5, 5));
         panelAux.add(btnEliminar);
         panelAux.add(btnLimpiar);
         panelBotones.add(panelAux);
-
         panelPrincipal.add(panelCampos, BorderLayout.NORTH);
         panelPrincipal.add(panelBotones, BorderLayout.SOUTH);
-        
         return panelPrincipal;
     }
 
@@ -98,7 +81,6 @@ public class GestionProductosPanel extends JPanel {
         btnGuardar.addActionListener(e -> guardarOActualizarProducto());
         btnEliminar.addActionListener(e -> eliminarProducto());
         btnLimpiar.addActionListener(e -> limpiarCampos());
-        
         tablaProductos.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 cargarFilaSeleccionada();
@@ -112,7 +94,6 @@ public class GestionProductosPanel extends JPanel {
         txtPrecio.setText("");
         txtStockMinimo.setText("");
         txtUnidadMedida.setText("");
-        
         txtSku.setEditable(true);
         btnEliminar.setEnabled(false);
         tablaProductos.clearSelection();
@@ -142,7 +123,6 @@ public class GestionProductosPanel extends JPanel {
             txtPrecio.setText(tableModel.getValueAt(fila, 2).toString());
             txtStockMinimo.setText(tableModel.getValueAt(fila, 3).toString());
             txtUnidadMedida.setText(tableModel.getValueAt(fila, 4).toString());
-
             txtSku.setEditable(false);
             btnEliminar.setEnabled(true);
         }
@@ -153,22 +133,18 @@ public class GestionProductosPanel extends JPanel {
             JOptionPane.showMessageDialog(this, "SKU y Nombre son campos obligatorios.");
             return;
         }
-
         try {
             String sku = txtSku.getText().trim();
             String nombre = txtNombre.getText().trim();
             double precio = Double.parseDouble(txtPrecio.getText().replace(",", "."));
             int stockMinimo = Integer.parseInt(txtStockMinimo.getText().trim());
             String unidad = txtUnidadMedida.getText().trim();
-            
             Producto p = new Producto(sku, nombre, precio, stockMinimo, unidad);
-            
             if (productoDAO.guardar(p)) {
                 JOptionPane.showMessageDialog(this, "Operación exitosa.");
                 limpiarCampos();
                 cargarProductos();
             }
-
         } catch (NumberFormatException e) {
             mostrarError("Formato numérico inválido en Precio o Stock.");
         } catch (SQLException e) {
@@ -180,7 +156,6 @@ public class GestionProductosPanel extends JPanel {
         String sku = txtSku.getText().trim();
         int confirm = JOptionPane.showConfirmDialog(this, 
             "¿Eliminar producto " + sku + "?", "Confirmar", JOptionPane.YES_NO_OPTION);
-
         if (confirm == JOptionPane.YES_OPTION) {
             try {
                 if (productoDAO.eliminar(sku)) {
