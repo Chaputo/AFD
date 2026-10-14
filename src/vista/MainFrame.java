@@ -51,10 +51,26 @@ public class MainFrame extends JFrame {
         menuBar.add(menuArchivo);
         JMenu menuAyuda = new JMenu("Ayuda");
         JMenuItem itemAcercaDe = new JMenuItem("Acerca de AFD");
-        itemAcercaDe.addActionListener(e -> JOptionPane.showMessageDialog(this, "AFD System v1.0\nDesarrollado por Lucas"));
+        itemAcercaDe.addActionListener(e -> mostrarAcercaDe());
         menuAyuda.add(itemAcercaDe);
         menuBar.add(menuAyuda);
         return menuBar;
+    }
+
+    private void mostrarAcercaDe() {
+        String mensaje = "<html><body style='width: 300px'>"
+            + "<h2 style='margin-bottom: 2px'>AFD System</h2>"
+            + "<span style='color: gray'>Versión 1.0.0</span>"
+            + "<p style='margin-top: 10px'>Sistema de gestión comercial para negocios con varias sucursales: "
+            + "pedidos, ventas, stock, órdenes de compra, proveedores, clientes y reportes.</p>"
+            + "<p style='margin-top: 10px'><b>Desarrollado por</b><br>Lucas Acosta y Franco Verdu</p>"
+            + "<p style='margin-top: 10px; color: gray'>Trabajo final · " + java.time.Year.now() + "</p>"
+            + "</body></html>";
+        java.net.URL url = MainFrame.class.getResource("/icono.png");
+        Icon icono = (url != null)
+            ? new ImageIcon(new ImageIcon(url).getImage().getScaledInstance(64, 64, Image.SCALE_SMOOTH))
+            : null;
+        JOptionPane.showMessageDialog(this, mensaje, "Acerca de AFD", JOptionPane.INFORMATION_MESSAGE, icono);
     }
 
     private void construirModulosSegunRol(String rol) {
