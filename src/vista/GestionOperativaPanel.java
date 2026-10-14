@@ -280,9 +280,11 @@ public class GestionOperativaPanel extends JPanel {
 
     private void confirmarYProcesar(int id, String anterior, String nuevo) {
         String mensaje = "¿Confirmar cambio de '" + anterior + "' a '" + nuevo + "'?";
-        if (anterior.equalsIgnoreCase("Devuelto") && (nuevo.equalsIgnoreCase("Entregado") || nuevo.equalsIgnoreCase("Finalizado"))) {
+        boolean anteriorRepuesto = anterior.equalsIgnoreCase("Devuelto") || anterior.equalsIgnoreCase("Cancelado");
+        boolean nuevoRepuesto = nuevo.equalsIgnoreCase("Devuelto") || nuevo.equalsIgnoreCase("Cancelado");
+        if (anteriorRepuesto && !nuevoRepuesto) {
             mensaje += "\n⚠️ ATENCIÓN: Se volverá a descontar el stock de los productos.";
-        } else if (nuevo.equalsIgnoreCase("Devuelto")) {
+        } else if (!anteriorRepuesto && nuevoRepuesto) {
             mensaje += "\nℹ️ Se repondrá el stock de los productos.";
         }
         int conf = JOptionPane.showConfirmDialog(this, mensaje, "Confirmar operación", JOptionPane.YES_NO_OPTION);

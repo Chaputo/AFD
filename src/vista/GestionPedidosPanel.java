@@ -316,10 +316,26 @@ public class GestionPedidosPanel extends JPanel {
         }
         try {
             List<Cliente> encontrado = clienteDAO.buscar(termino);
-            if (!encontrado.isEmpty()) {
-                clienteActual = encontrado.get(0);
+            // Solo se asigna si el resultado es único o coincide exacto con nombre/teléfono
+            Cliente elegido = null;
+            if (encontrado.size() == 1) {
+                elegido = encontrado.get(0);
+            } else {
+                for (Cliente c : encontrado) {
+                    if (termino.equalsIgnoreCase(c.getNombre()) || termino.equals(c.getTelefono())) {
+                        elegido = c;
+                        break;
+                    }
+                }
+            }
+            if (elegido != null) {
+                clienteActual = elegido;
                 txtIdCliente.setText(String.valueOf(clienteActual.getId()));
                 txtNombreCliente.setText(clienteActual.getNombre());
+            } else if (encontrado.size() > 1) {
+                clienteActual = null;
+                txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
+                txtNombreCliente.setText(encontrado.size() + " coincidencias: seguí escribiendo...");
             } else {
                 clienteActual = null;
                 txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));

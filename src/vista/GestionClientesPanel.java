@@ -334,7 +334,7 @@ public class GestionClientesPanel extends JPanel {
                     JOptionPane.showMessageDialog(this, "No se pudo eliminar el cliente.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (SQLException e) {
-                mostrarError("Error de integridad. Verifique que no existan ventas registradas a nombre de este cliente", e);
+                mostrarError("No se pudo eliminar el cliente", e);
             }
         }
     }

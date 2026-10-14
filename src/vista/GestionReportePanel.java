@@ -183,21 +183,10 @@ public class GestionReportePanel extends JPanel {
             List<Object[]> datosReporte = reporteDAO.consultarStockPorSucursal(sucursales);
             totalProductos = datosReporte.size();
             for (Object[] fila : datosReporte) {
-                // El Mínimo recomendado es el PENÚLTIMO elemento de la fila (length - 2)
-                int minimoRecomendado = obtenerEnteroSeguro(fila[fila.length - 2]);
-
-                // Recorremos las sucursales (desde índice 3 hasta length - 3)
-                for (int colSucursal = 3; colSucursal < fila.length - 2; colSucursal++) {
-                    int stockSucursal = obtenerEnteroSeguro(fila[colSucursal]);
-
-                    // Si la sucursal tiene stock menor al mínimo recomendado
-                    if (stockSucursal > 0 && stockSucursal < minimoRecomendado) {
-                        contadorCriticos++;
-                    }
-                }
-
                 tableModel.addRow(fila);
             }
+            // Mismo criterio que el dashboard: producto/sucursal con stock por debajo del mínimo (incluye agotados)
+            contadorCriticos = reporteDAO.contarStockCritico(null);
 
             configurarEstiloYAnchosDinamicos(sucursales.size());
             lblTotalProductos.setText("Total Productos Ofertados: " + totalProductos);
@@ -211,17 +200,6 @@ public class GestionReportePanel extends JPanel {
         }
     }
 
-    private int obtenerEnteroSeguro(Object objeto) {
-        if (objeto == null) return 0;
-        if (objeto instanceof Number) {
-            return ((Number) objeto).intValue();
-        }
-        try {
-            return Integer.parseInt(objeto.toString().trim());
-        } catch (NumberFormatException e) {
-            return 0;
-        }
-    }
 
     private void configurarEstiloYAnchosDinamicos(int cantidadSucursales) {
         DefaultTableCellRenderer renderCentro = new DefaultTableCellRenderer();

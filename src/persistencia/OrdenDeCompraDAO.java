@@ -9,9 +9,9 @@ import java.util.List;
 
 public class OrdenDeCompraDAO {
 
-    // Método auxiliar para consultar el stock disponible en la sucursal
+    // Método auxiliar para consultar el stock disponible en la sucursal (bloquea la fila: se usa dentro de transacciones)
     private int obtenerStockActual(Connection conn, String sku, int idSucursal) throws SQLException {
-        String sql = "SELECT cantidad_disponible FROM stock_sucursal WHERE sku_producto = ? AND id_sucursal = ?";
+        String sql = "SELECT cantidad_disponible FROM stock_sucursal WHERE sku_producto = ? AND id_sucursal = ? FOR UPDATE";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, sku);
             ps.setInt(2, idSucursal);
@@ -74,6 +74,7 @@ public class OrdenDeCompraDAO {
             if (rs != null) rs.close();
             if (psCabecera != null) psCabecera.close();
             if (psDetalle != null) psDetalle.close();
+            if (con != null) con.close();
         }
     }
 
@@ -112,88 +113,129 @@ public class OrdenDeCompraDAO {
         } finally {
             if (rs != null) rs.close();
             if (ps != null) ps.close();
+            if (con != null) con.close();
         }
         return lista;
     }
 
+    /**
+     * Cambia el estado de una OC impactando el stock:
+     * - Al pasar a RECIBIDA suma la mercadería en la sucursal elegida (los movimientos quedan vinculados a la OC).
+     * - RECIBIDA solo puede pasar a CANCELADA, y resta la mercadería de la sucursal donde se recibió.
+     * - CANCELADA es un estado final.
+     * El estado anterior se relee de la base; el parámetro estadoAnterior queda por compatibilidad.
+     */
     public boolean actualizarEstadoConStock(int idOC, String estadoAnterior, String nuevoEstado, int idSucursal) throws SQLException {
-        Connection con = null;
-        PreparedStatement psEstado = null;
-        PreparedStatement psLineas = null;
-        PreparedStatement psStock = null;
-        PreparedStatement psMov = null;
-        ResultSet rs = null;
-
-        String sqlUpdateEstado = "UPDATE orden_compra SET estado = ? WHERE id_oc = ?";
-        String sqlSelectLineas = "SELECT sku_producto, cantidad FROM linea_oc WHERE id_oc = ?";
-        String sqlSelectUsuario = "SELECT id_usuario FROM orden_compra WHERE id_oc = ?";
         String sqlUpsertStock = "INSERT INTO stock_sucursal (sku_producto, id_sucursal, cantidad_disponible, fecha_ultimo_movimiento) " +
                                 "VALUES (?, ?, ?, NOW()) " +
-                                "ON DUPLICATE KEY UPDATE cantidad_disponible = cantidad_disponible + VALUES(cantidad_disponible), fecha_ultimo_movimiento = NOW()"; 
-        String sqlInsertMovimiento = "INSERT INTO movimiento_stock (fecha, sku_producto, id_sucursal, tipo, id_usuario, cantidad, stock_resultante) " +
-                                     "VALUES (?, ?, ?, ?, ?, ?, ?)";
+                                "ON DUPLICATE KEY UPDATE cantidad_disponible = cantidad_disponible + VALUES(cantidad_disponible), fecha_ultimo_movimiento = NOW()";
+        String sqlInsertMovimiento = "INSERT INTO movimiento_stock (fecha, sku_producto, id_sucursal, tipo, id_usuario, cantidad, stock_resultante, id_oc_relacionada) " +
+                                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
+        Connection con = null;
         try {
             con = ConexionDB.getConnection();
             con.setAutoCommit(false);
 
-            // 1. Actualizar el estado de la OC
-            psEstado = con.prepareStatement(sqlUpdateEstado);
-            psEstado.setString(1, nuevoEstado);
-            psEstado.setInt(2, idOC);
-            psEstado.executeUpdate();
-
-            int multiplicadorStock = 0;
-            String tipoMovimiento = "";
-
-            if (nuevoEstado.equalsIgnoreCase("RECIBIDA") && !estadoAnterior.equalsIgnoreCase("RECIBIDA")) {
-                multiplicadorStock = 1;
-                tipoMovimiento = "INGRESO"; // O "ORDEN_COMPRA"
-            } else if (estadoAnterior.equalsIgnoreCase("RECIBIDA") && nuevoEstado.equalsIgnoreCase("CANCELADA")) {
-                multiplicadorStock = -1;
-                tipoMovimiento = "AJUSTE";
+            // 1. Releer estado actual y usuario emisor bloqueando la OC
+            String estadoActual;
+            int idUsuario;
+            try (PreparedStatement ps = con.prepareStatement("SELECT estado, id_usuario FROM orden_compra WHERE id_oc = ? FOR UPDATE")) {
+                ps.setInt(1, idOC);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) throw new SQLException("La OC #" + idOC + " no existe.");
+                    estadoActual = rs.getString("estado");
+                    idUsuario = rs.getInt("id_usuario");
+                }
             }
 
-            // 2. Si hay cambio en el inventario, impactar stock y auditar
-            if (multiplicadorStock != 0) {
-                // Obtener usuario que emitió la OC
-                int idUsuario = 1;
-                try (PreparedStatement psUsr = con.prepareStatement(sqlSelectUsuario)) {
-                    psUsr.setInt(1, idOC);
-                    try (ResultSet rsUsr = psUsr.executeQuery()) {
-                        if (rsUsr.next()) idUsuario = rsUsr.getInt("id_usuario");
+            if (estadoActual.equalsIgnoreCase(nuevoEstado)) {
+                con.rollback();
+                return true;
+            }
+            if (estadoActual.equalsIgnoreCase("CANCELADA")) {
+                throw new SQLException("La OC #" + idOC + " está CANCELADA y ya no puede cambiar de estado.");
+            }
+            if (estadoActual.equalsIgnoreCase("RECIBIDA") && !nuevoEstado.equalsIgnoreCase("CANCELADA")) {
+                throw new SQLException("La OC #" + idOC + " ya fue RECIBIDA: solo puede pasar a CANCELADA.");
+            }
+
+            // 2. Calcular qué cantidades mover y en qué sucursal: {sku, idSucursal, variacion}
+            List<Object[]> movimientos = new ArrayList<>();
+            String tipoMovimiento = null;
+
+            if (nuevoEstado.equalsIgnoreCase("RECIBIDA")) {
+                tipoMovimiento = "INGRESO";
+                try (PreparedStatement ps = con.prepareStatement("SELECT sku_producto, cantidad FROM linea_oc WHERE id_oc = ?")) {
+                    ps.setInt(1, idOC);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            movimientos.add(new Object[] { rs.getString("sku_producto"), idSucursal, rs.getInt("cantidad") });
+                        }
                     }
                 }
+            } else if (estadoActual.equalsIgnoreCase("RECIBIDA")) {
+                // Cancelación de una OC recibida: revertir lo ingresado en la sucursal donde entró
+                tipoMovimiento = "AJUSTE";
+                String sqlIngresos = "SELECT sku_producto, id_sucursal, SUM(cantidad) AS cantidad FROM movimiento_stock " +
+                                     "WHERE id_oc_relacionada = ? AND tipo = 'INGRESO' GROUP BY sku_producto, id_sucursal";
+                try (PreparedStatement ps = con.prepareStatement(sqlIngresos)) {
+                    ps.setInt(1, idOC);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            movimientos.add(new Object[] { rs.getString("sku_producto"), rs.getInt("id_sucursal"), -rs.getInt("cantidad") });
+                        }
+                    }
+                }
+                // OCs recibidas antes de vincular movimientos: se usa la sucursal elegida en pantalla
+                if (movimientos.isEmpty()) {
+                    try (PreparedStatement ps = con.prepareStatement("SELECT sku_producto, cantidad FROM linea_oc WHERE id_oc = ?")) {
+                        ps.setInt(1, idOC);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            while (rs.next()) {
+                                movimientos.add(new Object[] { rs.getString("sku_producto"), idSucursal, -rs.getInt("cantidad") });
+                            }
+                        }
+                    }
+                }
+                // No se puede revertir mercadería que ya se vendió
+                for (Object[] m : movimientos) {
+                    int disponible = obtenerStockActual(con, (String) m[0], (Integer) m[1]);
+                    if (disponible + (Integer) m[2] < 0) {
+                        throw new SQLException("No se puede cancelar: el producto " + m[0] + " tiene " + disponible
+                                + " unidades y habría que restar " + (-(Integer) m[2]) + ".");
+                    }
+                }
+            }
 
-                psLineas = con.prepareStatement(sqlSelectLineas);
-                psLineas.setInt(1, idOC);
-                rs = psLineas.executeQuery();
+            // 3. Actualizar el estado de la OC
+            try (PreparedStatement ps = con.prepareStatement("UPDATE orden_compra SET estado = ? WHERE id_oc = ?")) {
+                ps.setString(1, nuevoEstado);
+                ps.setInt(2, idOC);
+                ps.executeUpdate();
+            }
 
-                psStock = con.prepareStatement(sqlUpsertStock);
-                psMov = con.prepareStatement(sqlInsertMovimiento);
+            // 4. Impactar stock y auditar
+            try (PreparedStatement psStock = con.prepareStatement(sqlUpsertStock);
+                 PreparedStatement psMov = con.prepareStatement(sqlInsertMovimiento)) {
+                for (Object[] m : movimientos) {
+                    String sku = (String) m[0];
+                    int sucursal = (Integer) m[1];
+                    int variacion = (Integer) m[2];
 
-                while (rs.next()) {
-                    String sku = rs.getString("sku_producto");
-                    int cantidad = rs.getInt("cantidad");
-                    int variacionCantidad = cantidad * multiplicadorStock;
-
-                    // Actualizar o insertar en stock_sucursal
                     psStock.setString(1, sku);
-                    psStock.setInt(2, idSucursal);
-                    psStock.setInt(3, variacionCantidad); 
+                    psStock.setInt(2, sucursal);
+                    psStock.setInt(3, variacion);
                     psStock.executeUpdate();
 
-                    // Obtener stock resultante para auditoría
-                    int stockNuevo = obtenerStockActual(con, sku, idSucursal);
-
-                    // Insertar movimiento de auditoría
                     psMov.setTimestamp(1, Timestamp.valueOf(LocalDateTime.now()));
                     psMov.setString(2, sku);
-                    psMov.setInt(3, idSucursal);
+                    psMov.setInt(3, sucursal);
                     psMov.setString(4, tipoMovimiento);
                     psMov.setInt(5, idUsuario);
-                    psMov.setInt(6, variacionCantidad);
-                    psMov.setInt(7, stockNuevo);
+                    psMov.setInt(6, variacion);
+                    psMov.setInt(7, obtenerStockActual(con, sku, sucursal));
+                    psMov.setInt(8, idOC);
                     psMov.executeUpdate();
                 }
             }
@@ -206,11 +248,7 @@ public class OrdenDeCompraDAO {
             }
             throw ex;
         } finally {
-            if (rs != null) rs.close();
-            if (psEstado != null) psEstado.close();
-            if (psLineas != null) psLineas.close();
-            if (psStock != null) psStock.close();
-            if (psMov != null) psMov.close();
+            if (con != null) con.close();
         }
     }
 

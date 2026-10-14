@@ -128,7 +128,7 @@ public class GestionDashboardPanel extends JPanel {
         cmbSucursal = new JComboBox<>();
         cmbSucursal.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         cmbSucursal.setPreferredSize(new Dimension(160, 26));
-        cmbSucursal.addActionListener(e -> cargarDatosDashboard());
+        cmbSucursal.addActionListener(e -> { if (!recargandoSucursales) cargarDatosDashboard(); });
 
         // Selector de Mes
         JLabel lblMes = new JLabel("Mes:");
@@ -178,21 +178,33 @@ public class GestionDashboardPanel extends JPanel {
         cmbMes.addItem(new ItemMes(11, "Noviembre"));
         cmbMes.addItem(new ItemMes(12, "Diciembre"));
 
-        // Selecciona Agosto por defecto si coincide con el mes actual
-        cmbMes.setSelectedIndex(8); 
+        // Por defecto se muestra todo el año actual
+        cmbMes.setSelectedIndex(0);
     }
 
-    private void cargarSucursales() {
-        cmbSucursal.removeAllItems();
-        cmbSucursal.addItem(new ItemSucursal(0, "Todas las sucursales"));
+    // Evita que el listener del combo recargue el dashboard mientras se rearma la lista
+    private boolean recargandoSucursales = false;
 
+    void cargarSucursales() {
+        Integer seleccionAnterior = getSucursalSeleccionadaId();
+        recargandoSucursales = true;
         try {
+            cmbSucursal.removeAllItems();
+            cmbSucursal.addItem(new ItemSucursal(0, "Todas las sucursales"));
+
             Map<Integer, String> sucursales = dashboardDAO.obtenerSucursales();
             for (Map.Entry<Integer, String> entry : sucursales.entrySet()) {
-                cmbSucursal.addItem(new ItemSucursal(entry.getKey(), entry.getValue()));
+                ItemSucursal item = new ItemSucursal(entry.getKey(), entry.getValue());
+                cmbSucursal.addItem(item);
+                // Mantener la sucursal que estaba elegida, si sigue existiendo
+                if (seleccionAnterior != null && seleccionAnterior.equals(entry.getKey())) {
+                    cmbSucursal.setSelectedItem(item);
+                }
             }
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(this, "Error cargando sucursales: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        } finally {
+            recargandoSucursales = false;
         }
     }
 

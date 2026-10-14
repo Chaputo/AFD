@@ -1,59 +1,11 @@
 package persistencia;
-import modelo.StockConsolidado;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ReporteDAOImpl implements ReporteDAO {
 
-    // Consulta base
-
-    private static final String SQL_REPORTE_CONSOLIDADO = 
-        "SELECT " +
-        "    p.sku AS id_item, " + 
-        "    p.nombre AS nombre_item, " +
-        "    p.stockMinimo, " + 
-        "    COALESCE(SUM(ss.cantidad_disponible), 0) AS stock_total " + 
-        "FROM " +
-        "    producto p " + 
-        "LEFT JOIN " + 
-        "    stock_sucursal ss ON p.sku = ss.sku_producto " +
-        "GROUP BY " +
-        "    p.sku, p.nombre, p.stockMinimo " + 
-        "ORDER BY " +
-        "    nombre_item";
-    @Override
-
     // Métodos
-
-    public List<StockConsolidado> consultarStockConsolidado() throws SQLException {
-        List<StockConsolidado> stockConsolidado = new ArrayList<>();
-        try (Connection conn = ConexionDB.getConnection(); 
-            PreparedStatement pstmt = conn.prepareStatement(SQL_REPORTE_CONSOLIDADO);
-            ResultSet rs = pstmt.executeQuery()) 
-        {
-            while (rs.next()) {
-                String skuStr = rs.getString("id_item");
-                int idItem = 0; 
-                if (skuStr != null) {
-                    try { 
-                        idItem = Integer.parseInt(skuStr.replaceAll("[^0-9]", "")); 
-                    } catch(Exception e) { idItem = 0; }
-                }
-                String nombreItem = rs.getString("nombre_item");
-                int stockTotal = rs.getInt("stock_total"); 
-                int stockMinimo = rs.getInt("stockMinimo"); 
-                StockConsolidado item = new StockConsolidado(
-                    idItem, 
-                    nombreItem, 
-                    stockTotal, 
-                    stockMinimo
-                );
-                stockConsolidado.add(item);
-            }
-        } 
-        return stockConsolidado;
-    }
 
     @Override
     public List<String> obtenerNombresSucursales() throws SQLException {
@@ -75,10 +27,11 @@ public class ReporteDAOImpl implements ReporteDAO {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT p.sku AS id_item, p.nombre AS nombre_item, p.stockMinimo, ")
            .append("COALESCE(SUM(ss.cantidad_disponible), 0) AS stock_total ");
-        for (String suc : nombresSucursales) {
-            String sucEscapada = suc.replace("'", "''");
+        // Alias por posición (suc_0, suc_1...) para no depender de caracteres especiales del nombre
+        for (int i = 0; i < nombresSucursales.size(); i++) {
+            String sucEscapada = nombresSucursales.get(i).replace("\\", "\\\\").replace("'", "''");
             sql.append(", COALESCE(SUM(CASE WHEN suc.nombre = '").append(sucEscapada)
-               .append("' THEN ss.cantidad_disponible ELSE 0 END), 0) AS `").append(sucEscapada).append("` ");
+               .append("' THEN ss.cantidad_disponible ELSE 0 END), 0) AS suc_").append(i).append(" ");
         }
         sql.append("FROM producto p ")
            .append("LEFT JOIN stock_sucursal ss ON p.sku = ss.sku_producto ")
@@ -96,8 +49,8 @@ public class ReporteDAOImpl implements ReporteDAO {
                 int stockTotal = rs.getInt("stock_total");
                 fila[2] = stockTotal;
                 int idx = 3;
-                for (String suc : nombresSucursales) {
-                    fila[idx] = rs.getInt(suc);
+                for (int i = 0; i < nombresSucursales.size(); i++) {
+                    fila[idx] = rs.getInt("suc_" + i);
                     idx++;
                 }
                 int stockMinimo = rs.getInt("stockMinimo");
@@ -107,5 +60,23 @@ public class ReporteDAOImpl implements ReporteDAO {
             }
         }
         return datosReporte;
+    }
+
+    @Override
+    public int contarStockCritico(Integer idSucursal) throws SQLException {
+        boolean filtrar = (idSucursal != null && idSucursal > 0);
+        // Incluye productos agotados (stock 0) en las sucursales donde se manejan
+        String sql = "SELECT COUNT(*) FROM stock_sucursal ss " +
+                     "JOIN producto p ON p.sku = ss.sku_producto " +
+                     "JOIN sucursales s ON s.id_sucursal = ss.id_sucursal " +
+                     "WHERE ss.cantidad_disponible < p.stockMinimo" +
+                     (filtrar ? " AND ss.id_sucursal = ?" : "");
+        try (Connection conn = ConexionDB.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            if (filtrar) ps.setInt(1, idSucursal);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
     }
 }

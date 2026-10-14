@@ -27,8 +27,17 @@ public class LoginFrame extends JFrame {
         @Override public String toString() { return nombre; }
     }
 
+    // Ícono de la aplicación (barra de título y barra de tareas)
+    static void aplicarIcono(JFrame frame) {
+        java.net.URL url = LoginFrame.class.getResource("/icono.png");
+        if (url != null) {
+            frame.setIconImage(new ImageIcon(url).getImage());
+        }
+    }
+
     public LoginFrame() {
         setTitle("AFD - Acceso al sistema");
+        aplicarIcono(this);
         setSize(WIDTH, HEIGHT); 
         setLayout(new BorderLayout(10, 10)); 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -88,6 +97,7 @@ public class LoginFrame extends JFrame {
             }
         } catch (SQLException ex) {
             System.err.println("Error al poblar combo de sucursales en Login: " + ex.getMessage());
+            JOptionPane.showMessageDialog(null, ex.getMessage(), "❌ Sin conexión a la base de datos", JOptionPane.ERROR_MESSAGE);
         }
         if (cmbSucursales.getItemCount() == 0) {
             cmbSucursales.addItem(new SucursalItem(1, "Bella Vista (Casa Matriz)"));
@@ -122,8 +132,8 @@ public class LoginFrame extends JFrame {
                 txtClave.requestFocus();
             }
         } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this, 
-                "Error al conectar con la base de datos.", 
+            JOptionPane.showMessageDialog(this,
+                "Error al conectar con la base de datos:\n" + ex.getMessage(),
                 "❌ Error SQL",
                 JOptionPane.ERROR_MESSAGE);
             ex.printStackTrace();
@@ -139,6 +149,12 @@ public class LoginFrame extends JFrame {
         } catch (Exception ex) {
             System.err.println("Error al inicializar FlatLaf: " + ex);
         }
+        // Red de seguridad: cualquier error no controlado se muestra al usuario en vez de perderse en la consola
+        Thread.setDefaultUncaughtExceptionHandler((hilo, ex) -> {
+            ex.printStackTrace();
+            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null,
+                "Ocurrió un error inesperado:\n" + ex, "Error", JOptionPane.ERROR_MESSAGE));
+        });
         SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true));
     }
 }

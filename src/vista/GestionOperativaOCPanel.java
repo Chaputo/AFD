@@ -230,17 +230,18 @@ public class GestionOperativaOCPanel extends JPanel {
             String nuevoEstado = (String) cmbEstado.getSelectedItem();
             SucursalItem sucursalSeleccionada = (SucursalItem) cmbSucursales.getSelectedItem();
             if (nuevoEstado != null && sucursalSeleccionada != null) {
-                confirmarYProcesar(idOC, estadoAnterior, nuevoEstado, sucursalSeleccionada.id);
+                confirmarYProcesar(idOC, estadoAnterior, nuevoEstado, sucursalSeleccionada.id, sucursalSeleccionada.toString());
             }
         }
     }
 
-    private void confirmarYProcesar(int id, String anterior, String nuevo, int idSucursal) {
+    private void confirmarYProcesar(int id, String anterior, String nuevo, int idSucursal, String nombreSucursal) {
         String mensaje = "¿Confirmar cambio de estado de la OC '" + anterior + "' a '" + nuevo + "'?";
         if (nuevo.equalsIgnoreCase("RECIBIDA")) {
-            mensaje += "\nℹ️ Se sumará la mercadería al stock de la sucursal seleccionada.";
+            mensaje += "\nℹ️ Se sumará la mercadería al stock de " + nombreSucursal + ".";
         } else if (anterior.equalsIgnoreCase("RECIBIDA") && nuevo.equalsIgnoreCase("CANCELADA")) {
-            mensaje += "\n⚠️ ATENCIÓN: Se restará la mercadería del stock de la sucursal por cancelación.";
+            mensaje += "\n⚠️ ATENCIÓN: Se restará la mercadería del stock de la sucursal donde se recibió."
+                     + "\nSi la OC es anterior a este registro, se restará de " + nombreSucursal + ".";
         }
         int conf = JOptionPane.showConfirmDialog(this, mensaje, "Confirmar operación", JOptionPane.YES_NO_OPTION);
         if (conf == JOptionPane.YES_OPTION) {

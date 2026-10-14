@@ -44,36 +44,6 @@ public class ProveedorDAO {
             return filasAfectadas > 0;
         }
     }
-    
-    public Proveedor obtenerPorCuit(String cuit) throws SQLException {
-        String SQL = "SELECT id_proveedor, nombre, cuit, contacto FROM proveedor WHERE cuit = ?";
-        Proveedor proveedor = null;
-        try (Connection conn = ConexionDB.getConnection();
-            PreparedStatement pstmt = conn.prepareStatement(SQL)) {
-            pstmt.setString(1, cuit);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    proveedor = mapearProveedor(rs);
-                }
-            }
-        }
-        return proveedor;
-    }
-
-    public Proveedor obtenerPorId(int id) throws SQLException {
-        String SQL = "SELECT id_proveedor, nombre, cuit, contacto FROM proveedor WHERE id_proveedor = ?";
-        Proveedor proveedor = null;
-        try (Connection conn = ConexionDB.getConnection();
-            PreparedStatement pstmt = conn.prepareStatement(SQL)) {
-            pstmt.setInt(1, id);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    proveedor = mapearProveedor(rs);
-                }
-            }
-        }
-        return proveedor;
-    }
 
     public List<Proveedor> listarTodos() throws SQLException {
         List<Proveedor> proveedores = new ArrayList<>();

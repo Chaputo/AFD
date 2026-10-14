@@ -1,6 +1,5 @@
 package persistencia;
 
-import modelo.Stock_Sucursal;
 import modelo.Stock_SucursalDTO;
 import java.sql.*;
 import java.util.ArrayList;
@@ -34,7 +33,6 @@ public class Stock_SucursalDAOImpl {
         "WHERE p.nombre LIKE ? OR p.sku LIKE ? " + 
         "ORDER BY p.nombre, s.nombre";
 
-    private StockTransaccionalHandler stockHandler = new StockTransaccionalHandler();
 
     // Métodos
 
@@ -66,43 +64,6 @@ public class Stock_SucursalDAOImpl {
             }
         } 
         return stockList;
-    }
-
-    /**
-     * Actualiza el stock calculando la variación e insertando UN solo registro de auditoría.
-     */
-    public boolean actualizarStock(Stock_SucursalDTO stockDto, int idUsuario) throws SQLException {
-        try (Connection conn = ConexionDB.getConnection()) {
-            // 1. Obtener stock actual antes de modificar para calcular la diferencia
-            Stock_Sucursal stockActual = stockHandler.obtenerStockActual(conn, stockDto.getSkuProducto(), stockDto.getIdSucursal());
-            
-            int cantidadAnterior = (stockActual != null) ? stockActual.getCantidad() : 0;
-            int nuevaCantidad = stockDto.getCantidadDisponible();
-            int diferencia = nuevaCantidad - cantidadAnterior;
-
-            // Si no cambió el número, no hace nada
-            if (diferencia == 0) return true;
-
-            String tipoMovimiento = (diferencia > 0) ? "INGRESO" : "AJUSTE";
-            int cantidadAbsoluta = Math.abs(diferencia);
-
-            // Objeto para pasar al Handler
-            Stock_Sucursal stockModelo = new Stock_Sucursal(
-                stockDto.getId(),
-                stockDto.getSkuProducto(),
-                stockDto.getIdSucursal(),
-                cantidadAbsoluta,
-                LocalDateTime.now()
-            );
-
-            // 2. Ejecutar la actualización a través del Handler (este crea la auditoría)
-            return stockHandler.actualizarStockTransaccional(conn, stockModelo, tipoMovimiento, idUsuario);
-        }
-    }
-
-    // Sobrecarga por compatibilidad (si no se especifica usuario usa 1 = Sistema)
-    public boolean actualizarStock(Stock_SucursalDTO stock) throws SQLException {
-        return actualizarStock(stock, 1);
     }
 
     private Stock_SucursalDTO mapearDTO(ResultSet rs) throws SQLException {

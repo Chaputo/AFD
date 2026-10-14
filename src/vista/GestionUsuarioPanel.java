@@ -326,6 +326,12 @@ public class GestionUsuarioPanel extends JPanel {
         nuevoU.setPassword(pass);
 
         try {
+            // El sistema no puede quedar sin administradores
+            if (id != 0 && !"ADMIN".equalsIgnoreCase(rol) && usuarioDAO.esAdmin(id)
+                    && usuarioDAO.contarAdminsActivos() <= 1) {
+                mostrarMensajeError("Acción denegada", "Es el único ADMIN activo: no se le puede cambiar el rol.");
+                return;
+            }
             if (usuarioDAO.guardarOActualizar(nuevoU)) {
                 JOptionPane.showMessageDialog(this, "Usuario guardado con éxito.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
                 limpiarCampos();
@@ -333,8 +339,10 @@ public class GestionUsuarioPanel extends JPanel {
             } else {
                 JOptionPane.showMessageDialog(this, "No se pudo guardar/actualizar el usuario.", "Error", JOptionPane.ERROR_MESSAGE);
             }
+        } catch (java.sql.SQLIntegrityConstraintViolationException e) {
+            mostrarMensajeError("Usuario duplicado", "El nombre de usuario '" + userStr + "' ya existe (puede estar dado de baja).");
         } catch (SQLException e) {
-            mostrarMensajeError("Error", "El nombre de usuario ya existe o hubo un problema en la base de datos.");
+            mostrarMensajeError("Error de DB", "No se pudo guardar el usuario: " + e.getMessage());
         }
     }
 

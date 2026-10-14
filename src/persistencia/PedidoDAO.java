@@ -10,6 +10,42 @@ import java.util.List;
 
 public class PedidoDAO {
 
+    // Un pedido Devuelto o Cancelado tiene su stock repuesto; en cualquier otro estado el stock está descontado
+    private static boolean tieneStockRepuesto(String estado) {
+        return estado.equalsIgnoreCase("Devuelto") || estado.equalsIgnoreCase("Cancelado");
+    }
+
+    // Bloquea la fila de stock (FOR UPDATE) y valida que alcance para descontar la cantidad pedida
+    private void validarStockDisponible(Connection conn, String sku, int idSucursal, int cantidad) throws SQLException {
+        String sql = "SELECT cantidad_disponible FROM stock_sucursal WHERE sku_producto = ? AND id_sucursal = ? FOR UPDATE";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, sku);
+            ps.setInt(2, idSucursal);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SQLException("El producto " + sku + " no tiene stock cargado en esta sucursal.");
+                }
+                int disponible = rs.getInt("cantidad_disponible");
+                if (disponible < cantidad) {
+                    throw new SQLException("Stock insuficiente para " + sku + ": disponible " + disponible + ", requerido " + cantidad + ".");
+                }
+            }
+        }
+    }
+
+    // Lee el estado actual del pedido bloqueando la fila, para no confiar en el valor que muestra la pantalla
+    private String obtenerEstadoParaActualizar(Connection conn, int idPedido) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT estado_entrega FROM pedidos WHERE id_pedido = ? FOR UPDATE")) {
+            ps.setInt(1, idPedido);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SQLException("El pedido #" + idPedido + " no existe.");
+                }
+                return rs.getString("estado_entrega");
+            }
+        }
+    }
+
     // Auxiliar para obtener el stock disponible actual de un producto en una sucursal
     private int obtenerStockActual(Connection conn, String sku, int idSucursal) throws SQLException {
         String sql = "SELECT cantidad_disponible FROM stock_sucursal WHERE sku_producto = ? AND id_sucursal = ?";
@@ -30,8 +66,7 @@ public class PedidoDAO {
         int pedidoId = -1; 
         try {
             conn = ConexionDB.getConnection();
-            if (conn == null) return false;
-            conn.setAutoCommit(false); 
+            conn.setAutoCommit(false);
             
             String SQL_PEDIDO = "INSERT INTO pedidos (fecha_pedido, total_pedido, id_cliente, id_usuario, id_sucursal, estado_entrega, tipo_pago) VALUES (?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement pstmtPedido = conn.prepareStatement(SQL_PEDIDO, Statement.RETURN_GENERATED_KEYS)) {
@@ -68,7 +103,8 @@ public class PedidoDAO {
                     psDetalle.setInt(4, d.getCantidad());
                     psDetalle.executeUpdate();
 
-                    // 2. Descontar del stock
+                    // 2. Descontar del stock (validando antes que alcance)
+                    validarStockDisponible(conn, d.getSku(), idSucursal, d.getCantidad());
                     psStock.setInt(1, d.getCantidad());
                     psStock.setString(2, d.getSku());
                     psStock.setInt(3, idSucursal);
@@ -104,27 +140,41 @@ public class PedidoDAO {
         try {
             con = ConexionDB.getConnection();
             con.setAutoCommit(false);
-            
-            String sqlPedido = "UPDATE pedidos SET estado_entrega = ? WHERE id_pedido = ?"; 
-            PreparedStatement psPedido = con.prepareStatement(sqlPedido);
-            psPedido.setString(1, nuevoEstado);
-            psPedido.setInt(2, idPedido);
-            psPedido.executeUpdate();
+
+            // El estado anterior se relee de la base (el de la pantalla puede estar desactualizado)
+            String estadoActual = obtenerEstadoParaActualizar(con, idPedido);
 
             String operacionStock = "";
             String tipoMovimiento = "";
             int signo = 1;
 
-            if (nuevoEstado.equalsIgnoreCase("Devuelto")) {
-                operacionStock = "ss.cantidad_disponible = ss.cantidad_disponible + pd.cantidad"; 
+            if (!tieneStockRepuesto(estadoActual) && tieneStockRepuesto(nuevoEstado)) {
+                // Devuelto o Cancelado: se repone lo que se había descontado
+                operacionStock = "ss.cantidad_disponible = ss.cantidad_disponible + pd.cantidad";
                 tipoMovimiento = "DEVOLUCION";
                 signo = 1;
-            } 
-            else if (estadoAnterior.equalsIgnoreCase("Devuelto") && 
-                    (nuevoEstado.equalsIgnoreCase("Entregado") || nuevoEstado.equalsIgnoreCase("Pendiente"))) {
+            }
+            else if (tieneStockRepuesto(estadoActual) && !tieneStockRepuesto(nuevoEstado)) {
+                // Se reactiva un pedido devuelto/cancelado: se vuelve a descontar, si hay stock
                 operacionStock = "ss.cantidad_disponible = ss.cantidad_disponible - pd.cantidad";
                 tipoMovimiento = "VENTA";
                 signo = -1;
+                try (PreparedStatement ps = con.prepareStatement(
+                        "SELECT pd.sku_producto, pd.cantidad, p.id_sucursal FROM pedido_detalle pd " +
+                        "INNER JOIN pedidos p ON pd.id_pedido = p.id_pedido WHERE pd.id_pedido = ?")) {
+                    ps.setInt(1, idPedido);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            validarStockDisponible(con, rs.getString("sku_producto"), rs.getInt("id_sucursal"), rs.getInt("cantidad"));
+                        }
+                    }
+                }
+            }
+
+            try (PreparedStatement psPedido = con.prepareStatement("UPDATE pedidos SET estado_entrega = ? WHERE id_pedido = ?")) {
+                psPedido.setString(1, nuevoEstado);
+                psPedido.setInt(2, idPedido);
+                psPedido.executeUpdate();
             }
 
             if (!operacionStock.isEmpty()) {
@@ -133,9 +183,10 @@ public class PedidoDAO {
                                   "INNER JOIN pedidos p ON pd.id_pedido = p.id_pedido " +
                                   "SET " + operacionStock + " " +
                                   "WHERE pd.id_pedido = ? AND ss.id_sucursal = p.id_sucursal";
-                PreparedStatement psStock = con.prepareStatement(sqlStock);
-                psStock.setInt(1, idPedido);
-                psStock.executeUpdate();
+                try (PreparedStatement psStock = con.prepareStatement(sqlStock)) {
+                    psStock.setInt(1, idPedido);
+                    psStock.executeUpdate();
+                }
 
                 // Registrar movimientos en la auditoría para cada ítem afectado
                 String sqlDetalles = "SELECT p.id_sucursal, p.id_usuario, pd.sku_producto, pd.cantidad " +
@@ -173,16 +224,6 @@ public class PedidoDAO {
             throw e;
         } finally {
             if (con != null) con.close();
-        }
-    }
-
-    public boolean actualizarEstado(int idPedido, String nuevoEstado) throws SQLException {
-        String sql = "UPDATE pedidos SET estado_entrega = ? WHERE id_pedido = ?";
-        try (Connection con = ConexionDB.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, nuevoEstado);
-            ps.setInt(2, idPedido);
-            return ps.executeUpdate() > 0;
         }
     }
 
@@ -248,8 +289,14 @@ public class PedidoDAO {
         Connection con = null;
         try {
             con = ConexionDB.getConnection();
-            if (con == null) return false;
             con.setAutoCommit(false);
+
+            // 0. No se puede devolver sobre un pedido cuyo stock ya fue repuesto
+            String estadoActual = obtenerEstadoParaActualizar(con, idPedido);
+            if (tieneStockRepuesto(estadoActual)) {
+                con.rollback();
+                throw new IllegalArgumentException("El pedido está '" + estadoActual + "': su stock ya fue repuesto.");
+            }
 
             // 1. Obtener la sucursal y el usuario del pedido
             int idSucursal = -1;

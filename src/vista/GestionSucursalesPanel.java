@@ -355,9 +355,8 @@ public class GestionSucursalesPanel extends JPanel {
                     JOptionPane.showMessageDialog(this, "No se pudo eliminar la sucursal.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (SQLException e) {
-                JOptionPane.showMessageDialog(this,
-                    "Error de integridad. Verifique que no existan registros (ventas, usuarios, inventario, etc.) vinculados a esta sucursal.",
-                    "Error de clave foránea", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, e.getMessage(),
+                    "No se puede eliminar la sucursal", JOptionPane.ERROR_MESSAGE);
                 e.printStackTrace();
             }
         }

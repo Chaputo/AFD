@@ -267,7 +267,8 @@ public class GestionProveedoresPanel extends JPanel {
         txtId.setText(String.valueOf(tableModel.getValueAt(filaModelo, 0)));
         txtNombre.setText(String.valueOf(tableModel.getValueAt(filaModelo, 1)));
         txtCuit.setText(String.valueOf(tableModel.getValueAt(filaModelo, 2)));
-        txtContacto.setText(String.valueOf(tableModel.getValueAt(filaModelo, 3)));
+        Object contacto = tableModel.getValueAt(filaModelo, 3);
+        txtContacto.setText(contacto != null ? contacto.toString() : "");
         
         txtCuit.setEditable(true); 
         btnEliminar.setEnabled(true);
@@ -310,8 +311,10 @@ public class GestionProveedoresPanel extends JPanel {
             } else {
                 JOptionPane.showMessageDialog(this, "No se pudo guardar/actualizar el proveedor.", "Error", JOptionPane.ERROR_MESSAGE);
             }
+        } catch (java.sql.SQLIntegrityConstraintViolationException e) {
+            JOptionPane.showMessageDialog(this, "Ya existe un proveedor con ese CUIT.", "CUIT duplicado", JOptionPane.ERROR_MESSAGE);
         } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Error de base de datos. Asegúrese de que el CUIT no esté duplicado.", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error de base de datos: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
         } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(this, "Error de formato en los identificadores.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -334,10 +337,12 @@ public class GestionProveedoresPanel extends JPanel {
                 } else {
                     JOptionPane.showMessageDialog(this, "No se pudo eliminar el proveedor.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
+            } catch (java.sql.SQLIntegrityConstraintViolationException e) {
+                JOptionPane.showMessageDialog(this,
+                    "No se puede eliminar: el proveedor tiene Órdenes de Compra vinculadas.",
+                    "Proveedor en uso", JOptionPane.ERROR_MESSAGE);
             } catch (SQLException e) {
-                JOptionPane.showMessageDialog(this, 
-                    "Error de integridad. Verifique que no existan Órdenes de Compra vinculadas a este proveedor.", 
-                    "Error de clave foránea", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Error de base de datos: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 e.printStackTrace();
             }
         }

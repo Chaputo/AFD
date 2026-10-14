@@ -327,6 +327,17 @@ public class GestionProductosPanel extends JPanel {
         btnEliminar.setEnabled(true);
     }
 
+    // Acepta formato argentino ("1.500,50", "1.500") y también "1500.50"
+    private static double parsearPrecio(String texto) {
+        String t = texto.trim().replace("$", "").replace(" ", "");
+        if (t.contains(",")) {
+            t = t.replace(".", "").replace(",", ".");
+        } else if (t.matches("\\d{1,3}(\\.\\d{3})+")) {
+            t = t.replace(".", "");
+        }
+        return Double.parseDouble(t);
+    }
+
     private void guardarOActualizarProducto() {
         if (txtSku.getText().isBlank() || txtNombre.getText().isBlank()) {
             JOptionPane.showMessageDialog(this, "SKU y Nombre son campos obligatorios.", "Advertencia", JOptionPane.WARNING_MESSAGE);
@@ -335,9 +346,19 @@ public class GestionProductosPanel extends JPanel {
         try {
             String sku = txtSku.getText().trim();
             String nombre = txtNombre.getText().trim();
-            double precio = Double.parseDouble(txtPrecio.getText().replace(",", ".").trim());
+            double precio = parsearPrecio(txtPrecio.getText());
             int stockMinimo = Integer.parseInt(txtStockMinimo.getText().trim());
             String unidad = txtUnidadMedida.getText().trim();
+
+            if (precio < 0 || stockMinimo < 0) {
+                JOptionPane.showMessageDialog(this, "El precio y el stock mínimo no pueden ser negativos.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            // Alta nueva (SKU editable): no pisar un producto existente
+            if (txtSku.isEditable() && productoDAO.obtenerPorSku(sku) != null) {
+                JOptionPane.showMessageDialog(this, "Ya existe un producto con el SKU '" + sku + "'.\nSeleccionalo en la tabla para modificarlo.", "SKU duplicado", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
 
             Producto p = new Producto(sku, nombre, precio, stockMinimo, unidad);
             if (productoDAO.guardar(p)) {
@@ -375,8 +396,10 @@ public class GestionProductosPanel extends JPanel {
                 } else {
                     JOptionPane.showMessageDialog(this, "No se pudo eliminar el producto.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
-            } catch (SQLException e) {
+            } catch (java.sql.SQLIntegrityConstraintViolationException e) {
                 mostrarError("No se puede eliminar: El producto posee registros asociados en el sistema.");
+            } catch (SQLException e) {
+                mostrarError("Error de base de datos: " + e.getMessage());
             }
         }
     }

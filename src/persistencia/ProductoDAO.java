@@ -8,19 +8,6 @@ public class ProductoDAO {
 
     // Métodos
 
-    public List<Producto> listar() throws SQLException {
-        List<Producto> productos = new ArrayList<>();
-        String SQL = "SELECT sku, nombre, precio_venta, stockMinimo, unidadMedida FROM producto ORDER BY nombre"; 
-        try (Connection conn = ConexionDB.getConnection();
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(SQL)) {
-            while (rs.next()) {
-                productos.add(mapearProducto(rs));
-            }
-        } 
-        return productos;
-    }
-
     public Producto obtenerPorSku(String sku) throws SQLException {
         String SQL = "SELECT * FROM producto WHERE sku = ?";
         Producto producto = null;
@@ -77,20 +64,6 @@ public class ProductoDAO {
         }
     }
 
-    public int obtenerIdPorSku(String sku) throws SQLException {
-        String SQL = "SELECT * FROM producto WHERE sku = ?";
-        try (Connection conn = ConexionDB.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(SQL)) {
-            pstmt.setString(1, sku);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1); 
-                }
-            }
-        }
-        return 0;
-    }
-
     public List<Producto> listarTodos() throws SQLException {
         List<Producto> lista = new ArrayList<>();
         String sql = "SELECT * FROM producto";
@@ -99,21 +72,6 @@ public class ProductoDAO {
             ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 lista.add(mapearProducto(rs));
-            }
-        }
-        return lista;
-    }
-
-    public List<Producto> buscarPorNombre(String nombre) throws SQLException {
-        List<Producto> lista = new ArrayList<>();
-        String sql = "SELECT * FROM producto WHERE nombre LIKE ?";
-        try (Connection con = ConexionDB.getConnection();
-            PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, "%" + nombre + "%");
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    lista.add(mapearProducto(rs));
-                }
             }
         }
         return lista;

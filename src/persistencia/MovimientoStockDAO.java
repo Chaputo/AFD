@@ -1,55 +1,58 @@
 package persistencia;
 
-import modelo.MovimientoStock;
 import modelo.Stock_Sucursal;
 import java.sql.*;
 import java.time.LocalDateTime;
 
 public class MovimientoStockDAO {
 
-    private final StockTransaccionalHandler stockHandler = new StockTransaccionalHandler(); 
+    private final StockTransaccionalHandler stockHandler = new StockTransaccionalHandler();
 
-    public boolean registrarIngreso(MovimientoStock movimiento) throws SQLException {
+    /**
+     * Ajusta el stock de un producto en una sucursal a un valor fijo (inventario físico).
+     * La diferencia se calcula contra el stock real de la base (con la fila bloqueada),
+     * y se audita como INGRESO o EGRESO según corresponda.
+     * @return la diferencia aplicada (0 si el stock ya era ese valor)
+     */
+    public int ajustarAStockFijo(String sku, int idSucursal, int stockDestino) throws SQLException {
     Connection conn = null;
     try {
         conn = ConexionDB.getConnection();
-        conn.setAutoCommit(false); 
+        conn.setAutoCommit(false);
 
         // Obtener el ID del usuario en sesión
-        int idUsuario = (modelo.SesionUsuario.getUsuario() != null) 
-                ? modelo.SesionUsuario.getUsuario().getId() 
+        int idUsuario = (modelo.SesionUsuario.getUsuario() != null)
+                ? modelo.SesionUsuario.getUsuario().getId()
                 : 1;
 
-        Stock_Sucursal stockParaActualizar = new Stock_Sucursal(
-             0, 
-             movimiento.getSkuProducto(), 
-             movimiento.getIdSucursal(), 
-             movimiento.getCantidad(), 
-             LocalDateTime.now()
-        );
-
-        // 1. Actualizar el stock y registrar en movimiento_stock
-        boolean exitoStock = stockHandler.actualizarStockTransaccional(conn, stockParaActualizar, "INGRESO", idUsuario);
-        
-        if (!exitoStock) {
+        Stock_Sucursal actual = stockHandler.obtenerStockActual(conn, sku, idSucursal);
+        int diferencia = stockDestino - (actual != null ? actual.getCantidad() : 0);
+        if (diferencia == 0) {
             conn.rollback();
-            return false;
+            return 0;
         }
 
-        // ELIMINAR todo el paso 2 y paso 3 de inserción en SQL_INSERT_MOVIMIENTO
-        
-        conn.commit(); 
-        return true;
+        Stock_Sucursal movimiento = new Stock_Sucursal(0, sku, idSucursal, Math.abs(diferencia), LocalDateTime.now());
+        String tipo = (diferencia > 0) ? "INGRESO" : "EGRESO";
+
+        // Actualizar el stock y registrar en movimiento_stock
+        if (!stockHandler.actualizarStockTransaccional(conn, movimiento, tipo, idUsuario)) {
+            conn.rollback();
+            throw new SQLException("No se pudo actualizar el stock.");
+        }
+
+        conn.commit();
+        return diferencia;
 
     } catch (SQLException e) {
         if (conn != null) {
             try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
         }
-        throw e; 
+        throw e;
     } finally {
         if (conn != null) {
             try {
-                conn.setAutoCommit(true); 
+                conn.setAutoCommit(true);
                 conn.close();
             } catch (SQLException e) { e.printStackTrace(); }
         }

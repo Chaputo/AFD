@@ -22,6 +22,7 @@ public class MainFrame extends JFrame {
             return;
         }
         setTitle("Sistema AFD - Gestión logística y comercial");
+        LoginFrame.aplicarIcono(this);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1366, 768);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
@@ -128,8 +129,9 @@ public class MainFrame extends JFrame {
             Component c = tabbedPane.getComponentAt(i);
 
             // Refresca el Dashboard si está activo
-            if (c instanceof GestionDashboardPanel) { 
-                ((GestionDashboardPanel) c).cargarDatosDashboard(); 
+            if (c instanceof GestionDashboardPanel) {
+                ((GestionDashboardPanel) c).cargarSucursales();
+                ((GestionDashboardPanel) c).cargarDatosDashboard();
             }
 
             // Refresca el combo en Inventario

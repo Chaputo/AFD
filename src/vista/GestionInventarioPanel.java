@@ -10,7 +10,6 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.LocalDateTime;
 import java.util.List;
 
 import javax.swing.BorderFactory;
@@ -26,7 +25,6 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.table.DefaultTableModel;
 
-import modelo.MovimientoStock;
 import modelo.SesionUsuario;
 import modelo.Stock_SucursalDTO;
 import modelo.Usuario;
@@ -109,6 +107,7 @@ public class GestionInventarioPanel extends JPanel {
 
     private void cargarDatosInventario() {
         tableModel.setRowCount(0);
+        resultadosBusquedaActual = null; // la grilla pasa a mostrar la sucursal del combo
         SucursalItem suc = (SucursalItem) comboSucursal.getSelectedItem();
         if (suc == null) return;
         try {
@@ -263,39 +262,38 @@ public class GestionInventarioPanel extends JPanel {
                 return;
             }
             int modelRow = tablaStock.convertRowIndexToModel(filaSeleccionada);
-            int stockAnterior = Integer.parseInt(tableModel.getValueAt(modelRow, 2).toString());
             int stockDestino = Integer.parseInt(txtStockActual.getText().trim());
             if (stockDestino < 0) {
                 JOptionPane.showMessageDialog(this, "El inventario físico no puede ser menor a 0.");
                 return;
             }
-            int diferenciaCalculada = stockDestino - stockAnterior;
-            if (diferenciaCalculada == 0) {
-                JOptionPane.showMessageDialog(this, "El stock ingresado es idéntico al actual.");
-                return;
-            }
-            MovimientoStock mov = new MovimientoStock();
-            mov.setSkuProducto(txtSku.getText());
-            mov.setCantidad(diferenciaCalculada);
-            mov.setFecha(LocalDateTime.now());
-            mov.setTipo(diferenciaCalculada > 0 ? "INGRESO" : "EGRESO");
-            int idSucursalDestino;
-            String busqueda = txtBuscador.getText().trim();
 
-            if (!busqueda.isEmpty() && resultadosBusquedaActual != null && modelRow < resultadosBusquedaActual.size()) {
+            // La sucursal sale de lo que muestra la grilla: resultado de búsqueda global o sucursal del combo
+            String sku = tableModel.getValueAt(modelRow, 0).toString();
+            int idSucursalDestino;
+            if (resultadosBusquedaActual != null && modelRow < resultadosBusquedaActual.size()) {
                 idSucursalDestino = resultadosBusquedaActual.get(modelRow).getIdSucursal();
             } else {
                 idSucursalDestino = ((SucursalItem) comboSucursal.getSelectedItem()).id;
             }
 
-            mov.setIdSucursal(idSucursalDestino);
-            if (movimientoDAO.registrarIngreso(mov)) {
-                JOptionPane.showMessageDialog(this, "¡Inventario reajustado con éxito!");
-                cargarDatosInventario();
-                txtSku.setText("");
-                txtNombre.setText("");
-                txtStockActual.setText("");
+            int diferencia = movimientoDAO.ajustarAStockFijo(sku, idSucursalDestino, stockDestino);
+            if (diferencia == 0) {
+                JOptionPane.showMessageDialog(this, "El stock ingresado es idéntico al actual.");
+                return;
             }
+            JOptionPane.showMessageDialog(this, "¡Inventario reajustado con éxito! (" + (diferencia > 0 ? "+" : "") + diferencia + " unidades)");
+
+            // Refrescar manteniendo la vista actual (búsqueda o sucursal)
+            String busqueda = txtBuscador.getText().trim();
+            if (resultadosBusquedaActual != null && busqueda.length() >= 3) {
+                buscarProductoGlobal(busqueda);
+            } else {
+                cargarDatosInventario();
+            }
+            txtSku.setText("");
+            txtNombre.setText("");
+            txtStockActual.setText("");
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Por favor, ingrese un número entero válido.");
         } catch (Exception ex) {

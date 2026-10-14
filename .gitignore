@@ -1,0 +1,18 @@
+# Build de Maven
+target/
+
+# Compilados sueltos
+bin/
+*.class
+
+# IDEs (Eclipse/IntelliJ/VS Code los regeneran al importar el pom.xml)
+.classpath
+.project
+.settings/
+.idea/
+*.iml
+.vscode/
+
+# Sistema
+Thumbs.db
+.DS_Store

@@ -189,6 +189,7 @@ public class GestionFacturacionPanel extends JPanel {
                      "JOIN sucursales s ON p.id_sucursal = s.id_sucursal " + 
                      "JOIN usuarios u ON p.id_usuario = u.id_usuario " + 
                      "LEFT JOIN cliente c ON p.id_cliente = c.id_cliente " +
+                     "WHERE p.estado_entrega NOT IN ('Devuelto', 'Cancelado') " + // no se facturan ventas anuladas
                      "ORDER BY p.fecha_pedido DESC";
         try (Connection conn = ConexionDB.getConnection();
             Statement stmt = conn.createStatement();
@@ -323,7 +324,9 @@ public class GestionFacturacionPanel extends JPanel {
         double totalSuma = 0.0;
         int filasVisibles = tablaMovimientos.getRowCount();
         for (int i = 0; i < filasVisibles; i++) {
-            totalSuma += (Double) tablaMovimientos.getValueAt(i, 6);
+            // Se lee del modelo (columna fija "Total") aunque el usuario reordene las columnas
+            int filaModelo = tablaMovimientos.convertRowIndexToModel(i);
+            totalSuma += ((Number) modelMovimientos.getValueAt(filaModelo, 6)).doubleValue();
         }
         lblTotalFacturado.setText(String.format("Total Facturado en Vista: $%.2f", totalSuma));
     }

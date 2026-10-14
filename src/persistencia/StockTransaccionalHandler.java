@@ -7,7 +7,8 @@ import java.time.LocalDateTime;
 public class StockTransaccionalHandler { 
 
     public Stock_Sucursal obtenerStockActual(Connection conn, String skuProducto, int idSucursal) throws SQLException {
-        String SQL = "SELECT id, cantidad_disponible, fecha_ultimo_movimiento FROM stock_sucursal WHERE sku_producto = ? AND id_sucursal = ?";
+        // FOR UPDATE: bloquea la fila hasta el commit para que otra operación no pise el saldo calculado
+        String SQL = "SELECT id, cantidad_disponible, fecha_ultimo_movimiento FROM stock_sucursal WHERE sku_producto = ? AND id_sucursal = ? FOR UPDATE";
         Stock_Sucursal stock = null;
         try (PreparedStatement pstmt = conn.prepareStatement(SQL)) {
             pstmt.setString(1, skuProducto); 
