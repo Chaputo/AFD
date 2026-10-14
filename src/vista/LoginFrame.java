@@ -155,6 +155,8 @@ public class LoginFrame extends JFrame {
             SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null,
                 "Ocurrió un error inesperado:\n" + ex, "Error", JOptionPane.ERROR_MESSAGE));
         });
+        // Si está configurado un servidor local (db.local.properties), se levanta antes de abrir el login
+        ConexionDB.iniciarServidorSiHaceFalta();
         SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true));
     }
 }

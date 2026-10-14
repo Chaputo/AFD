@@ -16,3 +16,6 @@ bin/
 # Sistema
 Thumbs.db
 .DS_Store
+
+# Configuración local de cada PC (rutas, claves)
+db.local.properties

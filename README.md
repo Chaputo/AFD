@@ -49,6 +49,8 @@ pom.xml          Build de Maven
    ```
 2. Revisar `db.properties` (por defecto `root` sin contraseña en `localhost:3306/gestioncomercialdb`).
    La app lo busca en la carpeta desde donde se ejecuta y, si no está, junto al `.jar`.
+   Opcional: un `db.local.properties` al lado (no se sube al repo) pisa esos valores y puede indicar
+   un servidor local (`db.servidor.exe`, `db.servidor.config`) que la app inicia sola si la base no responde.
 3. Compilar y ejecutar:
    ```bash
    mvnw package

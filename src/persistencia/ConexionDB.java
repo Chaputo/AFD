@@ -14,6 +14,7 @@ public class ConexionDB {
     // Credenciales: se leen de db.properties (si existe) y si no se usan estos valores por defecto
 
     private static final String ARCHIVO_CONFIG = "db.properties";
+    private static final String ARCHIVO_CONFIG_LOCAL = "db.local.properties";
     private static final String DRIVER = "com.mysql.cj.jdbc.Driver";
     private static final Properties CONFIG = cargarConfiguracion();
 
@@ -49,31 +50,75 @@ public class ConexionDB {
         }
     }
 
-    // Busca db.properties en la carpeta actual y después junto al .jar de la aplicación
+    /**
+     * Si la base no responde y db.local.properties indica un servidor local (db.servidor.exe),
+     * lo inicia y espera a que acepte conexiones. Pensado para el MariaDB portable de la demo.
+     */
+    public static void iniciarServidorSiHaceFalta() {
+        String exe = CONFIG.getProperty("db.servidor.exe", "").trim();
+        if (exe.isEmpty() || servidorResponde()) return;
+        try {
+            java.util.List<String> comando = new java.util.ArrayList<>();
+            comando.add(exe);
+            String config = CONFIG.getProperty("db.servidor.config", "").trim();
+            if (!config.isEmpty()) comando.add("--defaults-file=" + config);
+            new ProcessBuilder(comando)
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start();
+            System.out.println("Iniciando servidor de base de datos: " + exe);
+            for (int i = 0; i < 40 && !servidorResponde(); i++) {
+                Thread.sleep(500);
+            }
+        } catch (IOException e) {
+            System.err.println("No se pudo iniciar el servidor de base de datos: " + e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static boolean servidorResponde() {
+        try (java.net.Socket s = new java.net.Socket()) {
+            s.connect(new java.net.InetSocketAddress(HOST, Integer.parseInt(PUERTO)), 500);
+            return true;
+        } catch (IOException | NumberFormatException e) {
+            return false;
+        }
+    }
+
+    // Lee db.properties de la carpeta actual o, si no está, de la carpeta del .jar.
+    // En esa misma carpeta, db.local.properties (opcional, no se sube al repo) pisa esos valores.
 
     private static Properties cargarConfiguracion() {
         Properties props = new Properties();
-        for (Path ruta : rutasPosibles()) {
+        for (Path carpeta : carpetasPosibles()) {
+            Path ruta = carpeta.resolve(ARCHIVO_CONFIG);
             if (Files.isRegularFile(ruta)) {
-                try (InputStream in = Files.newInputStream(ruta)) {
-                    props.load(in);
-                    System.out.println("Configuración de DB leída de " + ruta.toAbsolutePath());
-                    return props;
-                } catch (IOException e) {
-                    System.err.println("No se pudo leer " + ruta + ": " + e.getMessage());
-                }
+                leer(props, ruta);
+                Path local = carpeta.resolve(ARCHIVO_CONFIG_LOCAL);
+                if (Files.isRegularFile(local)) leer(props, local);
+                return props;
             }
         }
         System.out.println("No se encontró " + ARCHIVO_CONFIG + ", se usan los valores por defecto.");
         return props;
     }
 
-    private static Path[] rutasPosibles() {
-        Path actual = Paths.get(ARCHIVO_CONFIG);
+    private static void leer(Properties props, Path ruta) {
+        try (InputStream in = Files.newInputStream(ruta)) {
+            props.load(in);
+            System.out.println("Configuración de DB leída de " + ruta.toAbsolutePath());
+        } catch (IOException e) {
+            System.err.println("No se pudo leer " + ruta + ": " + e.getMessage());
+        }
+    }
+
+    private static Path[] carpetasPosibles() {
+        Path actual = Paths.get("");
         try {
             Path jar = Paths.get(ConexionDB.class.getProtectionDomain().getCodeSource().getLocation().toURI());
             Path carpetaJar = Files.isDirectory(jar) ? jar : jar.getParent();
-            return new Path[] { actual, carpetaJar.resolve(ARCHIVO_CONFIG) };
+            return new Path[] { actual, carpetaJar };
         } catch (Exception e) {
             return new Path[] { actual };
         }
