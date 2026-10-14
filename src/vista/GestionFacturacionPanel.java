@@ -1,5 +1,8 @@
 package vista;
+
 import persistencia.ConexionDB;
+import util.ExporterExcel;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
@@ -23,10 +26,12 @@ public class GestionFacturacionPanel extends JPanel {
     private JComboBox<SucursalFiltroItem> cmbFiltroSucursal;
     private JTextField txtBuscadorGlobal;
     private JButton btnRecargar;
+    private JButton btnExportarExcel;
     private JLabel lblTotalFacturado;
     private JFormattedTextField txtFechaDesde;
     private JFormattedTextField txtFechaHasta;
     private JButton btnLimpiarFechas;
+
     @SuppressWarnings("unused")
     private static class SucursalFiltroItem {
         int id; 
@@ -67,6 +72,7 @@ public class GestionFacturacionPanel extends JPanel {
         };
         tablaMovimientos = new JTable(modelMovimientos);
         tablaMovimientos.setRowHeight(25);
+        tablaMovimientos.getColumnModel().getColumn(6).setCellRenderer(new CurrencyCellRenderer());
         sorter = new TableRowSorter<>(modelMovimientos);
         tablaMovimientos.setRowSorter(sorter);
         modelDetalle = new DefaultTableModel(
@@ -76,6 +82,9 @@ public class GestionFacturacionPanel extends JPanel {
         };
         tablaDetalleItems = new JTable(modelDetalle);
         tablaDetalleItems.setRowHeight(23);
+        tablaDetalleItems.getColumnModel().getColumn(2).setCellRenderer(new RightAlignedCellRenderer());
+        tablaDetalleItems.getColumnModel().getColumn(3).setCellRenderer(new CurrencyCellRenderer());
+        tablaDetalleItems.getColumnModel().getColumn(4).setCellRenderer(new CurrencyCellRenderer());
     }
 
     private JPanel crearPanelFiltros() {
@@ -106,7 +115,11 @@ public class GestionFacturacionPanel extends JPanel {
             System.err.println("Error al crear la máscara de fechas: " + e.getMessage());
         }
         btnRecargar = new JButton("↻ Actualizar");
+        btnExportarExcel = new JButton("Exportar a Excel");
+        
         panelIzquierdo.add(btnRecargar);
+        panelIzquierdo.add(btnExportarExcel);
+
         JPanel panelDerecho = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         panelDerecho.add(new JLabel("Buscar (Vendedor, Cliente, ID...):"));
         txtBuscadorGlobal = new JTextField(15);
@@ -118,6 +131,14 @@ public class GestionFacturacionPanel extends JPanel {
 
     private void agregarListeners() {
         btnRecargar.addActionListener(e -> cargarMovimientosFacturacion());
+        btnExportarExcel.addActionListener(e -> {
+            if (tablaMovimientos.getRowCount() == 0) {
+                JOptionPane.showMessageDialog(this, "No hay datos en la tabla para exportar.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            ExporterExcel.exportarTabla(tablaMovimientos, "Auditoria_Facturacion");
+        });
+        
         cmbFiltroSucursal.addActionListener(e -> aplicarFiltrosCruzados());
         java.awt.event.KeyAdapter fechaKeyAdapter = new java.awt.event.KeyAdapter() {
             @Override
@@ -145,7 +166,7 @@ public class GestionFacturacionPanel extends JPanel {
         });
     }
 
-    private void cargarSucursalesEnCombo() {
+    public void cargarSucursalesEnCombo() {
         cmbFiltroSucursal.removeAllItems();
         cmbFiltroSucursal.addItem(new SucursalFiltroItem(0, "Todas las Sucursales"));
         try (Connection conn = ConexionDB.getConnection();
@@ -212,8 +233,8 @@ public class GestionFacturacionPanel extends JPanel {
                         rs.getString("sku"),
                         rs.getString("nombre"),
                         rs.getInt("cantidad"),
-                        String.format("$%.2f", rs.getDouble("precio_unitario")),
-                        String.format("$%.2f", rs.getDouble("subtotal"))
+                        rs.getDouble("precio_unitario"),
+                        rs.getDouble("subtotal")
                     });
                 }
             }
@@ -224,58 +245,79 @@ public class GestionFacturacionPanel extends JPanel {
     }
 
     private void aplicarFiltrosCruzados() {
-        java.util.List<RowFilter<Object, Object>> filtros = new java.util.ArrayList<>();
-        if (cmbFiltroSucursal != null && cmbFiltroSucursal.getSelectedIndex() > 0) {
-            String sucursalSeleccionada = cmbFiltroSucursal.getSelectedItem().toString().trim();
-            if (!sucursalSeleccionada.isEmpty()) {
-                filtros.add(RowFilter.regexFilter("(?i)^" + java.util.regex.Pattern.quote(sucursalSeleccionada) + "$", 3));
-            }
+    java.util.List<RowFilter<Object, Object>> filtros = new java.util.ArrayList<>();
+    
+    // Filtro por Sucursal
+    if (cmbFiltroSucursal != null && cmbFiltroSucursal.getSelectedIndex() > 0) {
+        String sucursalSeleccionada = cmbFiltroSucursal.getSelectedItem().toString().trim();
+        if (!sucursalSeleccionada.isEmpty()) {
+            filtros.add(RowFilter.regexFilter("(?i)^" + java.util.regex.Pattern.quote(sucursalSeleccionada) + "$", 3));
         }
-        if (txtBuscadorGlobal != null) {
-            String textoBusqueda = txtBuscadorGlobal.getText().trim();
-            if (!textoBusqueda.isEmpty()) {
-                filtros.add(RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(textoBusqueda)));
-            }
-        }
-        if (txtFechaDesde != null && txtFechaHasta != null) {
-            String desdeStr = txtFechaDesde.getText().trim();
-            String hastaStr = txtFechaHasta.getText().trim();
-            boolean tieneDesde = !desdeStr.contains("_") && desdeStr.length() == 10;
-            boolean tieneHasta = !hastaStr.contains("_") && hastaStr.length() == 10;
-            if (tieneDesde || tieneHasta) {
-                filtros.add(new RowFilter<Object, Object>() {
-                    @Override
-                    public boolean include(Entry<? extends Object, ? extends Object> entry) {
-                        try {
-                            String fechaColumnaStr = entry.getStringValue(1);
-                            if (fechaColumnaStr == null || fechaColumnaStr.isEmpty()) return false;
-                            String soloFechaColumna = fechaColumnaStr.split(" ")[0];
-                            LocalDate fechaFila = LocalDate.parse(soloFechaColumna, DATE_PARSE_FORMAT);
-                            if (tieneDesde) {
-                                LocalDate fechaDesde = LocalDate.parse(desdeStr, DATE_PARSE_FORMAT);
-                                if (fechaFila.isBefore(fechaDesde)) return false;
-                            }
-                            if (tieneHasta) {
-                                LocalDate fechaHasta = LocalDate.parse(hastaStr, DATE_PARSE_FORMAT);
-                                if (fechaFila.isAfter(fechaHasta)) return false;
-                            }
+    }
+    
+    // Filtro del Buscador Global (ignora tildes, acentos y mayúsculas/minúsculas)
+    if (txtBuscadorGlobal != null) {
+        String textoBusqueda = normalizarTexto(txtBuscadorGlobal.getText().trim());
+        if (!textoBusqueda.isEmpty()) {
+            filtros.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<? extends Object, ? extends Object> entry) {
+                    for (int i = 0; i < entry.getValueCount(); i++) {
+                        String valorCelda = entry.getStringValue(i);
+                        String celdaNormalizada = normalizarTexto(valorCelda);
+                        if (celdaNormalizada.contains(textoBusqueda)) {
                             return true;
-                        } catch (Exception ex) {
-                            return false;
                         }
                     }
-                });
-            }
+                    return false;
+                }
+            });
         }
-        if (sorter != null) {
-            if (filtros.isEmpty()) {
-                sorter.setRowFilter(null);
-            } else {
-                sorter.setRowFilter(RowFilter.andFilter(filtros));
-            }
-        }
-        recalcularTotalCajaVisual();
     }
+    
+    // Filtro por Rango de Fechas
+    if (txtFechaDesde != null && txtFechaHasta != null) {
+        String desdeStr = txtFechaDesde.getText().trim();
+        String hastaStr = txtFechaHasta.getText().trim();
+        boolean tieneDesde = !desdeStr.contains("_") && desdeStr.length() == 10;
+        boolean tieneHasta = !hastaStr.contains("_") && hastaStr.length() == 10;
+        if (tieneDesde || tieneHasta) {
+            filtros.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<? extends Object, ? extends Object> entry) {
+                    try {
+                        String fechaColumnaStr = entry.getStringValue(1);
+                        if (fechaColumnaStr == null || fechaColumnaStr.isEmpty()) return false;
+                        String soloFechaColumna = fechaColumnaStr.split(" ")[0];
+                        LocalDate fechaFila = LocalDate.parse(soloFechaColumna, DATE_PARSE_FORMAT);
+                        if (tieneDesde) {
+                            LocalDate fechaDesde = LocalDate.parse(desdeStr, DATE_PARSE_FORMAT);
+                            if (fechaFila.isBefore(fechaDesde)) return false;
+                        }
+                        if (tieneHasta) {
+                            LocalDate fechaHasta = LocalDate.parse(hastaStr, DATE_PARSE_FORMAT);
+                            if (fechaFila.isAfter(fechaHasta)) return false;
+                        }
+                        return true;
+                    } catch (Exception ex) {
+                        return false;
+                    }
+                }
+            });
+        }
+    }
+    
+    // Aplicar la lista combinada de filtros
+    if (sorter != null) {
+        if (filtros.isEmpty()) {
+            sorter.setRowFilter(null);
+        } else {
+            sorter.setRowFilter(RowFilter.andFilter(filtros));
+        }
+    }
+    
+    recalcularTotalCajaVisual();
+}
 
     private void recalcularTotalCajaVisual() {
         double totalSuma = 0.0;
@@ -285,4 +327,10 @@ public class GestionFacturacionPanel extends JPanel {
         }
         lblTotalFacturado.setText(String.format("Total Facturado en Vista: $%.2f", totalSuma));
     }
+
+    private static String normalizarTexto(String texto) {
+    if (texto == null) return "";
+    String temp = java.text.Normalizer.normalize(texto, java.text.Normalizer.Form.NFD);
+    return temp.replaceAll("\\p{M}", "").toLowerCase();
+}
 }

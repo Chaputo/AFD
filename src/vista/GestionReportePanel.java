@@ -1,15 +1,29 @@
 package vista;
 
-import persistencia.ReporteDAO;
-import persistencia.ReporteDAOImpl;
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.DefaultTableModel;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.FlowLayout;
+import java.awt.Font;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.SwingConstants;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+
+import persistencia.ReporteDAO;
+import persistencia.ReporteDAOImpl;
+import util.ExporterExcel;
 
 public class GestionReportePanel extends JPanel {
 
@@ -17,11 +31,13 @@ public class GestionReportePanel extends JPanel {
 
     private final ReporteDAO reporteDAO = new ReporteDAOImpl();
     private JButton btnConsultarStock;
+    private JButton btnExportarExcel;
     private JTable tablaReporte;
     private DefaultTableModel tableModel;
     private JLabel lblTituloReporte; 
     private JLabel lblTotalProductos;
     private JLabel lblTotalCriticos;
+
     public GestionReportePanel() {
         setLayout(new BorderLayout(15, 15));
         setBorder(new EmptyBorder(15, 15, 15, 15));
@@ -55,6 +71,8 @@ public class GestionReportePanel extends JPanel {
     private void inicializarComponentes() {
         btnConsultarStock = new JButton("🔍 Actualizar reporte");
         btnConsultarStock.setFont(new Font("SansSerif", Font.BOLD, 12));
+        btnExportarExcel = new JButton("Exportar a Excel");
+        btnExportarExcel.setFont(new Font("SansSerif", Font.BOLD, 12));
         lblTituloReporte = new JLabel("Reporte de stock consolidado multi-sucursal", SwingConstants.LEFT);
         lblTituloReporte.setFont(new Font("Segoe UI", Font.BOLD, 18)); 
         lblTotalProductos = new JLabel("Total Productos: 0");
@@ -110,6 +128,7 @@ public class GestionReportePanel extends JPanel {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         panelBotones.add(btnConsultarStock);
+        panelBotones.add(btnExportarExcel);
         panel.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createTitledBorder("Herramientas de consulta"),
             new EmptyBorder(5, 5, 5, 5)
@@ -126,51 +145,84 @@ public class GestionReportePanel extends JPanel {
         panelResumen.add(lblTotalCriticos);
         return panelResumen;
     }
+
     private void agregarListeners() {
         btnConsultarStock.addActionListener(e -> cargarStockConsolidado());
+        btnExportarExcel.addActionListener(e -> exportarReporteExcel());
     }
 
-    private void cargarStockConsolidado() {
-    int contadorCriticos = 0;
-    int totalProductos = 0;
-    try {
-        List<String> sucursales = reporteDAO.obtenerNombresSucursales();
-        List<String> columnas = new ArrayList<>();
-        columnas.add("ID Ítem");
-        columnas.add("Nombre / Descripción");
-        columnas.add("Stock total");
-        columnas.addAll(sucursales);
-        columnas.add("Mínimo recomendado");
-        tableModel = new DefaultTableModel(columnas.toArray(), 0) {
-            @Override
-            public boolean isCellEditable(int row, int col) { return false; }
-            @Override
-            public Class<?> getColumnClass(int col) {
-                if (col == 1) return String.class;
-                return Integer.class;
-            }
-        };
-        tablaReporte.setModel(tableModel);
-        List<Object[]> datosReporte = reporteDAO.consultarStockPorSucursal(sucursales);
-        totalProductos = datosReporte.size();
-        for (Object[] fila : datosReporte) {
-            String estado = (String) fila[fila.length - 1];
-            if (estado.contains("CRÍTICO")) {
-                contadorCriticos++;
-            }
-            tableModel.addRow(fila);
+    private void exportarReporteExcel() {
+        if (tablaReporte.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "No hay datos en el reporte para exportar.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+            return;
         }
-        configurarEstiloYAnchosDinamicos(sucursales.size());
-        lblTotalProductos.setText("Total Productos Ofertados: " + totalProductos);
-        lblTotalCriticos.setText("En alerta crítica: " + contadorCriticos);
-        if (datosReporte.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "No se encontraron ítems de stock para reportar.", "Información", JOptionPane.INFORMATION_MESSAGE);
-        }
-    } catch (SQLException e) {
-        JOptionPane.showMessageDialog(this, "Error al generar el reporte de stock: " + e.getMessage(), "Error de DB/Datos", JOptionPane.ERROR_MESSAGE);
-        e.printStackTrace();
+        ExporterExcel.exportarTabla(tablaReporte, "Reporte_Stock_Consolidado");
     }
-}
+
+    public void cargarStockConsolidado() {
+        int contadorCriticos = 0;
+        int totalProductos = 0;
+        try {
+            List<String> sucursales = reporteDAO.obtenerNombresSucursales();
+            List<String> columnas = new ArrayList<>();
+            columnas.add("ID Ítem");
+            columnas.add("Nombre / Descripción");
+            columnas.add("Stock total");
+            columnas.addAll(sucursales);
+            columnas.add("Mínimo recomendado");
+            tableModel = new DefaultTableModel(columnas.toArray(), 0) {
+                @Override
+                public boolean isCellEditable(int row, int col) { return false; }
+                @Override
+                public Class<?> getColumnClass(int col) {
+                    if (col == 1) return String.class;
+                    return Integer.class;
+                }
+            };
+            tablaReporte.setModel(tableModel);
+            List<Object[]> datosReporte = reporteDAO.consultarStockPorSucursal(sucursales);
+            totalProductos = datosReporte.size();
+            for (Object[] fila : datosReporte) {
+                // El Mínimo recomendado es el PENÚLTIMO elemento de la fila (length - 2)
+                int minimoRecomendado = obtenerEnteroSeguro(fila[fila.length - 2]);
+
+                // Recorremos las sucursales (desde índice 3 hasta length - 3)
+                for (int colSucursal = 3; colSucursal < fila.length - 2; colSucursal++) {
+                    int stockSucursal = obtenerEnteroSeguro(fila[colSucursal]);
+
+                    // Si la sucursal tiene stock menor al mínimo recomendado
+                    if (stockSucursal > 0 && stockSucursal < minimoRecomendado) {
+                        contadorCriticos++;
+                    }
+                }
+
+                tableModel.addRow(fila);
+            }
+
+            configurarEstiloYAnchosDinamicos(sucursales.size());
+            lblTotalProductos.setText("Total Productos Ofertados: " + totalProductos);
+            lblTotalCriticos.setText("En alerta crítica: " + contadorCriticos);
+            if (datosReporte.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "No se encontraron ítems de stock para reportar.", "Información", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Error al generar el reporte de stock: " + e.getMessage(), "Error de DB/Datos", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
+    }
+
+    private int obtenerEnteroSeguro(Object objeto) {
+        if (objeto == null) return 0;
+        if (objeto instanceof Number) {
+            return ((Number) objeto).intValue();
+        }
+        try {
+            return Integer.parseInt(objeto.toString().trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
     private void configurarEstiloYAnchosDinamicos(int cantidadSucursales) {
         DefaultTableCellRenderer renderCentro = new DefaultTableCellRenderer();
         renderCentro.setHorizontalAlignment(SwingConstants.CENTER);
@@ -181,32 +233,31 @@ public class GestionReportePanel extends JPanel {
         DefaultTableCellRenderer renderSucursales = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, 
-            boolean isSelected, boolean hasFocus, int row, int column) {
-            Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-            setHorizontalAlignment(SwingConstants.RIGHT);
-            if (value != null && value instanceof Number) {
-                int stockSucursal = ((Number) value).intValue();
-                int totalColumnas = table.getColumnCount();
-                int columnaMinimo = totalColumnas - 1; 
-                Object minimoValue = table.getValueAt(row, columnaMinimo);
-            if (minimoValue != null && minimoValue instanceof Number) {
-                int stockMinimo = ((Number) minimoValue).intValue();
-                if (stockSucursal < stockMinimo) {
-                    c.setForeground(new Color(255, 110, 110));
-                    setFont(getFont().deriveFont(Font.BOLD));
-                } else {
-                    c.setForeground(new Color(110, 255, 110));
-                    setFont(getFont().deriveFont(Font.PLAIN));
+                    boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                setHorizontalAlignment(SwingConstants.RIGHT);
+                if (value != null && value instanceof Number) {
+                    int stockSucursal = ((Number) value).intValue();
+                    int totalColumnas = table.getColumnCount();
+                    int columnaMinimo = totalColumnas - 1; 
+                    Object minimoValue = table.getValueAt(row, columnaMinimo);
+                    if (minimoValue != null && minimoValue instanceof Number) {
+                        int stockMinimo = ((Number) minimoValue).intValue();
+                        if (stockSucursal < stockMinimo) {
+                            c.setForeground(new Color(255, 110, 110));
+                            setFont(getFont().deriveFont(Font.BOLD));
+                        } else {
+                            c.setForeground(new Color(110, 255, 110));
+                            setFont(getFont().deriveFont(Font.PLAIN));
+                        }
+                    }
+                    if (stockSucursal == 0) {
+                        c.setForeground(new Color(140, 140, 140));
+                        setFont(getFont().deriveFont(Font.PLAIN));
+                    }
                 }
-            }
-            if (stockSucursal == 0) {
-                c.setForeground(new Color(140, 140, 140));
-                setFont(getFont().deriveFont(Font.PLAIN));
-            }
-            
-        }
-        c.setBackground(isSelected ? table.getSelectionBackground() : table.getBackground());
-        return c;
+                c.setBackground(isSelected ? table.getSelectionBackground() : table.getBackground());
+                return c;
             }
         };
         int totalColumnas = tablaReporte.getColumnCount();

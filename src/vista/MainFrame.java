@@ -1,4 +1,5 @@
 package vista;
+
 import modelo.Usuario;
 import modelo.SesionUsuario;
 import javax.swing.*;
@@ -8,8 +9,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public class MainFrame extends JFrame {
-
-    // Variables y Constructor
 
     private JTabbedPane tabbedPane;
     private final int idSucursalSesion;
@@ -25,6 +24,7 @@ public class MainFrame extends JFrame {
         setTitle("Sistema AFD - Gestión logística y comercial");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1366, 768);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null); 
         setLayout(new BorderLayout());
         setJMenuBar(crearMenuBar());
@@ -57,40 +57,101 @@ public class MainFrame extends JFrame {
     }
 
     private void construirModulosSegunRol(String rol) {
-        try {
-            tabbedPane.removeAll();
-            System.out.println("Iniciando carga de módulos para el rol: " + rol + " en Sucursal ID: " + idSucursalSesion);
-            tabbedPane.addTab("Ventas", new GestionPedidosPanel(idSucursalSesion)); 
-            tabbedPane.addTab("Operaciones", new GestionOperativaPanel()); 
-            if (rol.equalsIgnoreCase("ADMIN") || rol.equalsIgnoreCase("GERENTE") || rol.equalsIgnoreCase("VENDEDOR")) {
-                tabbedPane.addTab("Inventario", new GestionInventarioPanel()); 
+    try {
+        tabbedPane.removeAll();
+        System.out.println("Iniciando carga de módulos para el rol: " + rol + " en Sucursal ID: " + idSucursalSesion);
+
+        // 1. Pedidos (Siempre primero)
+        tabbedPane.addTab("Pedidos", new GestionPedidosPanel(idSucursalSesion));
+
+        // 2. Operaciones
+        tabbedPane.addTab("Operaciones", new GestionOperativaPanel());
+
+        // 3. Inventario
+        if (rol.equalsIgnoreCase("ADMIN") || rol.equalsIgnoreCase("GERENTE") || rol.equalsIgnoreCase("VENDEDOR")) {
+            tabbedPane.addTab("Inventario", new GestionInventarioPanel());
+        }
+
+        // Modulos de Gestion para ADMIN y GERENTE
+        if (rol.equalsIgnoreCase("ADMIN") || rol.equalsIgnoreCase("GERENTE")) {
+            // 4. Emitir OC
+            tabbedPane.addTab("Emitir OC", new GestionOrdenDeCompraPanel());
+            // 5. Operaciones OC
+            tabbedPane.addTab("Operaciones OC", new GestionOperativaOCPanel());
+            // 6. Proveedores
+            tabbedPane.addTab("Proveedores", new GestionProveedoresPanel());
+        }
+
+        // 7. Clientes (Para todos)
+        tabbedPane.addTab("Clientes", new GestionClientesPanel());
+
+        // 8. Productos
+        if (rol.equalsIgnoreCase("ADMIN") || rol.equalsIgnoreCase("GERENTE")) {
+            tabbedPane.addTab("Productos", new GestionProductosPanel());
+        }
+
+        // Exclusivos de ADMIN
+        if (rol.equalsIgnoreCase("ADMIN")) {
+            // 9. Usuarios
+            tabbedPane.addTab("Usuarios", new GestionUsuarioPanel());
+            // 10. Sucursales
+            tabbedPane.addTab("Sucursales", new GestionSucursalesPanel());
+        }
+
+        // 11. Ventas
+        if (rol.equalsIgnoreCase("ADMIN") || rol.equalsIgnoreCase("GERENTE")) {
+            tabbedPane.addTab("Ventas", new GestionFacturacionPanel());
+            // 12. Reportes
+            tabbedPane.addTab("Reportes", new GestionReportePanel());
+            // 13. Dashboard
+            tabbedPane.addTab("Dashboard", new GestionDashboardPanel());
+            // 14. Auditoría (Antes llamado "Movimientos Stock")
+            tabbedPane.addTab("Auditoría", new HistorialMovimientosPanel());
+        }
+
+        tabbedPane.revalidate();
+        tabbedPane.repaint();
+        System.out.println("Módulos cargados exitosamente.");
+
+    } catch (Exception e) {
+        System.err.println("CRÍTICO: Error durante la instanciación de los paneles.");
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(this,
+                "Error fatal al construir la interfaz.\nDetalle: " + e.getMessage(),
+                "Error de sistema",
+                JOptionPane.ERROR_MESSAGE);
+    }
+}
+
+    public void notificarCambioSucursales() {
+        for (int i = 0; i < tabbedPane.getTabCount(); i++) {
+            Component c = tabbedPane.getComponentAt(i);
+
+            // Refresca el Dashboard si está activo
+            if (c instanceof GestionDashboardPanel) { 
+                ((GestionDashboardPanel) c).cargarDatosDashboard(); 
             }
-            if (rol.equalsIgnoreCase("ADMIN") || rol.equalsIgnoreCase("GERENTE")) {
-                tabbedPane.addTab("Emitir OC", new GestionOrdenDeCompraPanel());
-                tabbedPane.addTab("Operaciones OC", new GestionOperativaOCPanel());
-                tabbedPane.addTab("Proveedores", new GestionProveedoresPanel());
-                tabbedPane.addTab("Facturación", new GestionFacturacionPanel());
+
+            // Refresca el combo en Inventario
+            if (c instanceof GestionInventarioPanel) { 
+                ((GestionInventarioPanel) c).cargarComboSucursales(); 
             }
-            tabbedPane.addTab("Clientes", new GestionClientesPanel()); 
-            if (rol.equalsIgnoreCase("ADMIN") || rol.equalsIgnoreCase("GERENTE")) {
-                tabbedPane.addTab("Productos", new GestionProductosPanel()); 
+
+            // Refresca el combo en Historial de Movimientos
+            if (c instanceof HistorialMovimientosPanel) { 
+                ((HistorialMovimientosPanel) c).cargarComboSucursales(); 
+                ((HistorialMovimientosPanel) c).cargarHistorialMovimientos(); 
             }
-            if (rol.equalsIgnoreCase("ADMIN")) {
-                tabbedPane.addTab("Usuarios", new GestionUsuarioPanel());
+
+            // Refresca el combo en Facturación
+            if (c instanceof GestionFacturacionPanel) { 
+                ((GestionFacturacionPanel) c).cargarSucursalesEnCombo(); 
             }
-            if (rol.equalsIgnoreCase("ADMIN") || rol.equalsIgnoreCase("GERENTE")) {
-                tabbedPane.addTab("Reportes", new GestionReportePanel());
+
+            // Refresca la grilla consolidada en Reportes
+            if (c instanceof GestionReportePanel) { 
+                ((GestionReportePanel) c).cargarStockConsolidado(); 
             }
-            tabbedPane.revalidate();
-            tabbedPane.repaint();
-            System.out.println("Módulos cargados exitosamente.");
-        } catch (Exception e) {
-            System.err.println("CRÍTICO: Error durante la instanciación de los paneles.");
-            e.printStackTrace(); 
-            JOptionPane.showMessageDialog(this, 
-                "Error fatal al construir la interfaz.\nDetalle: " + e.getMessage(), 
-                "Error de sistema", 
-            JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -99,7 +160,8 @@ public class MainFrame extends JFrame {
         statusPanel.setPreferredSize(new Dimension(this.getWidth(), 35));
         statusPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY));
         String fecha = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
-        JLabel lblUser = new JLabel("  👤 Usuario: " + user.getNombre() + " (" + user.getRol() + ")  |  📍 ID Sucursal: " + idSucursalSesion + "  |  📅 " + fecha);
+        String nombreSucursal = obtenerNombreSucursal(idSucursalSesion);
+        JLabel lblUser = new JLabel("  👤 Usuario: " + user.getNombre() + " (" + user.getRol() + ")  |  📍 ID Sucursal: " + nombreSucursal + "  |  📅 " + fecha);
         lblUser.setFont(new Font("SansSerif", Font.PLAIN, 12));
         statusPanel.add(lblUser, BorderLayout.WEST);
         return statusPanel;
@@ -114,5 +176,22 @@ public class MainFrame extends JFrame {
             this.dispose();
             new LoginFrame().setVisible(true);
         }
+    }
+
+    private String obtenerNombreSucursal(int idSucursal) {
+        String nombre = "Desconocida";
+        String sql = "SELECT nombre FROM sucursales WHERE id_sucursal = ?";
+        try (java.sql.Connection conn = persistencia.ConexionDB.getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idSucursal);
+            try (java.sql.ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    nombre = rs.getString("nombre");
+                }
+            }
+        } catch (java.sql.SQLException e) {
+            System.err.println("Error al obtener nombre de la sucursal: " + e.getMessage());
+        }
+        return nombre;
     }
 }

@@ -1,4 +1,6 @@
 package persistencia;
+
+import modelo.Stock_Sucursal;
 import modelo.Stock_SucursalDTO;
 import java.sql.*;
 import java.util.ArrayList;
@@ -8,10 +10,9 @@ import java.time.LocalDateTime;
 public class Stock_SucursalDAOImpl {
 
     // Consultas base
-
     private static final String SQL_LISTAR_POR_SUCURSAL = 
         "SELECT " +
-        "    p.sku, p.nombre AS nombre_producto, p.stockMinimo, s.id_sucursal, s.nombre AS nombre_sucursal, " + // 🔍 Corregido a p.stockMinimo
+        "    p.sku, p.nombre AS nombre_producto, p.stockMinimo, s.id_sucursal, s.nombre AS nombre_sucursal, " +
         "    COALESCE(ss.id, 0) AS id_stock, " + 
         "    COALESCE(ss.cantidad_disponible, 0) AS cantidad_actual, " + 
         "    ss.fecha_ultimo_movimiento " +
@@ -23,7 +24,7 @@ public class Stock_SucursalDAOImpl {
 
     private static final String SQL_BUSCAR_GLOBAL = 
         "SELECT " +
-        "    p.sku, p.nombre AS nombre_producto, p.stockMinimo, s.id_sucursal, s.nombre AS nombre_sucursal, " + // 🔍 Corregido a p.stockMinimo
+        "    p.sku, p.nombre AS nombre_producto, p.stockMinimo, s.id_sucursal, s.nombre AS nombre_sucursal, " +
         "    COALESCE(ss.id, 0) AS id_stock, " + 
         "    COALESCE(ss.cantidad_disponible, 0) AS cantidad_actual, " + 
         "    ss.fecha_ultimo_movimiento " +
@@ -33,11 +34,7 @@ public class Stock_SucursalDAOImpl {
         "WHERE p.nombre LIKE ? OR p.sku LIKE ? " + 
         "ORDER BY p.nombre, s.nombre";
 
-    private static final String SQL_ACTUALIZAR_CANTIDAD = 
-        "UPDATE stock_sucursal SET cantidad_disponible = ?, fecha_ultimo_movimiento = ? WHERE id = ?";
-    
-    private static final String SQL_INSERTAR_CANTIDAD = 
-        "INSERT INTO stock_sucursal (sku_producto, id_sucursal, cantidad_disponible, fecha_ultimo_movimiento) VALUES (?, ?, ?, ?)";
+    private StockTransaccionalHandler stockHandler = new StockTransaccionalHandler();
 
     // Métodos
 
@@ -71,25 +68,41 @@ public class Stock_SucursalDAOImpl {
         return stockList;
     }
 
-    public boolean actualizarStock(Stock_SucursalDTO stock) throws SQLException {
-        if (stock.getId() > 0) { 
-            try (Connection conn = ConexionDB.getConnection();
-                PreparedStatement pstmt = conn.prepareStatement(SQL_ACTUALIZAR_CANTIDAD)) {
-                pstmt.setInt(1, stock.getCantidadDisponible());
-                pstmt.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
-                pstmt.setInt(3, stock.getId());
-                return pstmt.executeUpdate() > 0;
-            }
-        } else {
-            try (Connection conn = ConexionDB.getConnection();
-                PreparedStatement pstmt = conn.prepareStatement(SQL_INSERTAR_CANTIDAD)) {
-                pstmt.setString(1, stock.getSkuProducto()); 
-                pstmt.setInt(2, stock.getIdSucursal());
-                pstmt.setInt(3, stock.getCantidadDisponible());
-                pstmt.setTimestamp(4, Timestamp.valueOf(LocalDateTime.now()));
-                return pstmt.executeUpdate() > 0;
-            }
+    /**
+     * Actualiza el stock calculando la variación e insertando UN solo registro de auditoría.
+     */
+    public boolean actualizarStock(Stock_SucursalDTO stockDto, int idUsuario) throws SQLException {
+        try (Connection conn = ConexionDB.getConnection()) {
+            // 1. Obtener stock actual antes de modificar para calcular la diferencia
+            Stock_Sucursal stockActual = stockHandler.obtenerStockActual(conn, stockDto.getSkuProducto(), stockDto.getIdSucursal());
+            
+            int cantidadAnterior = (stockActual != null) ? stockActual.getCantidad() : 0;
+            int nuevaCantidad = stockDto.getCantidadDisponible();
+            int diferencia = nuevaCantidad - cantidadAnterior;
+
+            // Si no cambió el número, no hace nada
+            if (diferencia == 0) return true;
+
+            String tipoMovimiento = (diferencia > 0) ? "INGRESO" : "AJUSTE";
+            int cantidadAbsoluta = Math.abs(diferencia);
+
+            // Objeto para pasar al Handler
+            Stock_Sucursal stockModelo = new Stock_Sucursal(
+                stockDto.getId(),
+                stockDto.getSkuProducto(),
+                stockDto.getIdSucursal(),
+                cantidadAbsoluta,
+                LocalDateTime.now()
+            );
+
+            // 2. Ejecutar la actualización a través del Handler (este crea la auditoría)
+            return stockHandler.actualizarStockTransaccional(conn, stockModelo, tipoMovimiento, idUsuario);
         }
+    }
+
+    // Sobrecarga por compatibilidad (si no se especifica usuario usa 1 = Sistema)
+    public boolean actualizarStock(Stock_SucursalDTO stock) throws SQLException {
+        return actualizarStock(stock, 1);
     }
 
     private Stock_SucursalDTO mapearDTO(ResultSet rs) throws SQLException {

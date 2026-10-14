@@ -2,6 +2,8 @@ package vista;
 
 import modelo.*;
 import persistencia.*;
+import util.ExporterExcel;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
@@ -24,6 +26,7 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
     private JButton btnAgregarLinea;
     private JButton btnEliminarLinea;
     private JButton btnGuardarOC;
+    private JButton btnExportarExcel;
     private JTable tblLineasOC;
     private DefaultTableModel modeloTabla;
     private JLabel lblTotal;
@@ -67,16 +70,20 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
         btnAgregarLinea = new JButton("Agregar ítem");
         btnEliminarLinea = new JButton("Eliminar seleccionado");
         btnGuardarOC = new JButton("Guardar / emitir OC");
+        btnExportarExcel = new JButton("Exportar a Excel");
         Dimension buttonSize = new Dimension(160, 30);
         btnAgregarLinea.setPreferredSize(buttonSize);
         btnEliminarLinea.setPreferredSize(buttonSize);
         btnGuardarOC.setPreferredSize(buttonSize);
+        btnExportarExcel.setPreferredSize(buttonSize);
         btnAgregarLinea.addActionListener(this);
         btnEliminarLinea.addActionListener(this);
         btnGuardarOC.addActionListener(this);
+        btnExportarExcel.addActionListener(this);
         panelBotonera.add(btnAgregarLinea);
         panelBotonera.add(btnEliminarLinea);
         panelBotonera.add(btnGuardarOC);
+        panelBotonera.add(btnExportarExcel);
         panelNorteContenedor.add(panelCampos, BorderLayout.CENTER);
         panelNorteContenedor.add(panelBotonera, BorderLayout.SOUTH);
         add(panelNorteContenedor, BorderLayout.NORTH);
@@ -89,6 +96,11 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
         };
         tblLineasOC = new JTable(modeloTabla);
         tblLineasOC.setRowHeight(22);
+        tblLineasOC.getColumnModel().getColumn(2).setCellRenderer(new RightAlignedCellRenderer());
+        tblLineasOC.getColumnModel().getColumn(3).setCellRenderer(new CurrencyCellRenderer());
+        tblLineasOC.getColumnModel().getColumn(4).setCellRenderer(new CurrencyCellRenderer());
+        txtCantidad.setHorizontalAlignment(JTextField.RIGHT);
+        txtPrecioUnitario.setHorizontalAlignment(JTextField.RIGHT);
         JScrollPane scrollPane = new JScrollPane(tblLineasOC);
         JPanel panelFooter = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         lblTotal = new JLabel("TOTAL OC: $0.00");
@@ -130,7 +142,17 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
             eliminarLineaSeleccionada();
         } else if (e.getSource() == btnGuardarOC) {
             guardarOrdenDeCompra();
+        } else if (e.getSource() == btnExportarExcel) {
+            exportarDetalleExcel();
         }
+    }
+
+    private void exportarDetalleExcel() {
+        if (tblLineasOC.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "No hay datos en la tabla para exportar.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        ExporterExcel.exportarTabla(tblLineasOC, "Borrador_Orden_Compra");
     }
 
     private void agregarLineaALaOC() {
@@ -149,12 +171,13 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
             double subtotal = cant * precio;
             LineaOC linea = new LineaOC(0, 0, prod.getSku(), cant, (float) precio, subtotal);
             lineasOCActuales.add(linea);
+
             modeloTabla.addRow(new Object[]{
                 prod.getSku(),
                 prod.getNombre(),
                 cant,
-                String.format("$%.2f", precio),
-                String.format("$%.2f", subtotal)
+                precio,
+                subtotal
             });
             actualizarTotal();
             txtCantidad.setText("");

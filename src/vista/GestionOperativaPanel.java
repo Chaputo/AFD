@@ -2,6 +2,8 @@ package vista;
 
 import modelo.Pedido;
 import persistencia.PedidoDAO;
+import util.ExporterExcel;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
@@ -27,6 +29,8 @@ public class GestionOperativaPanel extends JPanel {
     private JCheckBox chkMostrarTodo; 
     private JButton btnActualizarEstado;
     private JButton btnRecargar;
+    private JButton btnExportarExcel;
+    private JButton btnDevolverItem; // <-- Nuevo botón para devolución parcial
 
     public GestionOperativaPanel() {
         setLayout(new BorderLayout(10, 10));
@@ -35,9 +39,19 @@ public class GestionOperativaPanel extends JPanel {
         inicializarModeloDetalle();
 
         JScrollPane scrollCabecera = new JScrollPane(tablaPedidosActivos);
+        
+        // Panel inferior para los detalles
         JPanel panelDetalleInferior = new JPanel(new BorderLayout());
         panelDetalleInferior.setBorder(BorderFactory.createTitledBorder("Artículos incluidos en el Pedido Seleccionado"));
         panelDetalleInferior.add(new JScrollPane(tablaDetalleProductos), BorderLayout.CENTER);
+        
+        // Barra de herramientas para el detalle
+        JPanel panelAccionesDetalle = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        btnDevolverItem = new JButton("↩️ Devolver producto seleccionado");
+        btnDevolverItem.setEnabled(false); // Se habilita solo al seleccionar un ítem
+        panelAccionesDetalle.add(btnDevolverItem);
+        panelDetalleInferior.add(panelAccionesDetalle, BorderLayout.SOUTH);
+
         JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, scrollCabecera, panelDetalleInferior);
         splitPane.setDividerLocation(300);
         splitPane.setResizeWeight(0.5);
@@ -54,6 +68,7 @@ public class GestionOperativaPanel extends JPanel {
         };
         tablaPedidosActivos = new JTable(modelPedidos);
         tablaPedidosActivos.setRowHeight(25);
+        tablaPedidosActivos.getColumnModel().getColumn(2).setCellRenderer(new CurrencyCellRenderer());
         sorter = new TableRowSorter<>(modelPedidos);
         tablaPedidosActivos.setRowSorter(sorter);
     }
@@ -65,6 +80,9 @@ public class GestionOperativaPanel extends JPanel {
         };
         tablaDetalleProductos = new JTable(modelDetalle);
         tablaDetalleProductos.setRowHeight(23);
+        tablaDetalleProductos.getColumnModel().getColumn(2).setCellRenderer(new RightAlignedCellRenderer());
+        tablaDetalleProductos.getColumnModel().getColumn(3).setCellRenderer(new CurrencyCellRenderer());
+        tablaDetalleProductos.getColumnModel().getColumn(4).setCellRenderer(new CurrencyCellRenderer());
     }
 
     private JPanel crearPanelSuperior() {
@@ -73,10 +91,13 @@ public class GestionOperativaPanel extends JPanel {
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         btnActualizarEstado = new JButton("🔄 Cambiar estado");
         btnRecargar = new JButton("↻ Recargar lista");
+        btnExportarExcel = new JButton("Exportar a Excel");
         btnActualizarEstado.setBackground(new Color(255, 165, 0));
         btnActualizarEstado.setForeground(Color.WHITE);
         panelBotones.add(btnActualizarEstado);
         panelBotones.add(btnRecargar);
+        panelBotones.add(btnExportarExcel);
+
         JPanel panelBusqueda = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         chkMostrarTodo = new JCheckBox("Mostrar historial completo");
         panelBusqueda.add(chkMostrarTodo);
@@ -89,39 +110,76 @@ public class GestionOperativaPanel extends JPanel {
     }
 
     private void agregarListeners() {
-        btnActualizarEstado.addActionListener(e -> mostrarDialogoCambioEstado());
-        btnRecargar.addActionListener(e -> cargarPedidosActivos());
-        chkMostrarTodo.addActionListener(e -> cargarPedidosActivos());
-        tablaPedidosActivos.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                cargarDetalleProductosSeleccionados();
-            }
-        });
+    btnActualizarEstado.addActionListener(e -> mostrarDialogoCambioEstado());
+    btnRecargar.addActionListener(e -> cargarPedidosActivos());
+    btnExportarExcel.addActionListener(e -> {
+        if (tablaPedidosActivos.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "No hay datos en la tabla para exportar.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        ExporterExcel.exportarTabla(tablaPedidosActivos, "Gestion_Pedidos");
+    });
+    chkMostrarTodo.addActionListener(e -> cargarPedidosActivos());
+    
+    // Listener de la tabla de Pedidos
+    tablaPedidosActivos.getSelectionModel().addListSelectionListener(e -> {
+        if (!e.getValueIsAdjusting()) {
+            cargarDetalleProductosSeleccionados();
+        }
+    });
 
-        txtBuscador.addKeyListener(new java.awt.event.KeyAdapter() {
-            @Override
-            public void keyReleased(java.awt.event.KeyEvent evt) {
-                String texto = txtBuscador.getText();
-                if (texto.trim().isEmpty()) {
-                    sorter.setRowFilter(null);
-                } else {
-                    sorter.setRowFilter(RowFilter.regexFilter("(?i)" + texto, 0, 4));
-                }
+    // Listener de la tabla de Detalles (Habilita botón de devolución parcial)
+    tablaDetalleProductos.getSelectionModel().addListSelectionListener(e -> {
+        if (!e.getValueIsAdjusting()) {
+            btnDevolverItem.setEnabled(tablaDetalleProductos.getSelectedRow() != -1);
+        }
+    });
+
+    // Evento del botón de devolución parcial
+    btnDevolverItem.addActionListener(e -> procesarDevolucionParcial());
+
+    // Buscador flexible (ignora tildes, acentos y mayúsculas/minúsculas)
+    txtBuscador.addKeyListener(new java.awt.event.KeyAdapter() {
+        @Override
+        public void keyReleased(java.awt.event.KeyEvent evt) {
+            String busqueda = normalizarTexto(txtBuscador.getText());
+            
+            if (busqueda.trim().isEmpty()) {
+                sorter.setRowFilter(null);
+            } else {
+                sorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
+                    @Override
+                    public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
+                        // Revisa las columnas: ID (0), Fecha (1), Estado (3), Cliente (4), Usuario (5)
+                        int[] columnasAFiltrar = {0, 1, 3, 4, 5}; 
+                        
+                        for (int col : columnasAFiltrar) {
+                            String valorCelda = entry.getStringValue(col);
+                            String celdaNormalizada = normalizarTexto(valorCelda);
+                            if (celdaNormalizada.contains(busqueda)) {
+                                return true; // Coincide si lo encuentra en cualquier columna
+                            }
+                        }
+                        return false;
+                    }
+                });
             }
-        });
-    }
+        }
+    });
+}
 
     private void cargarPedidosActivos() {
         modelPedidos.setRowCount(0);
         modelDetalle.setRowCount(0);
+        btnDevolverItem.setEnabled(false);
         try {
             List<Pedido> pedidos = pedidoDAO.listarPedidosActivos(chkMostrarTodo.isSelected()); 
             for (Pedido p : pedidos) {
                 modelPedidos.addRow(new Object[]{
                     p.getId(), 
                     p.getFechaHora().format(DATETIME_FORMAT), 
-                    String.format("$%.2f", p.getTotal()),       
-                    p.getEstado(),                              
+                    p.getTotal(),       
+                    p.getEstado(),                             
                     p.getNombreCliente(), 
                     p.getNombreUsuario()  
                 });
@@ -134,6 +192,7 @@ public class GestionOperativaPanel extends JPanel {
 
     private void cargarDetalleProductosSeleccionados() {
         modelDetalle.setRowCount(0); 
+        btnDevolverItem.setEnabled(false);
         int fila = tablaPedidosActivos.getSelectedRow();
         if (fila == -1) return;
         int modelRow = tablaPedidosActivos.convertRowIndexToModel(fila);
@@ -141,19 +200,61 @@ public class GestionOperativaPanel extends JPanel {
         try {
             List<Object[]> lineas = pedidoDAO.buscarDetalleProductosPorPedido(idPedido);
             for (Object[] linea : lineas) {
-                String precioFormateado = String.format("$%.2f", (Double) linea[3]);
-                String subtotalFormateado = String.format("$%.2f", (Double) linea[4]);
                 modelDetalle.addRow(new Object[]{
                     linea[0],
                     linea[1],
                     linea[2],
-                    precioFormateado,
-                    subtotalFormateado
+                    linea[3],
+                    linea[4]
                 });
             }
         } catch (SQLException e) {
             e.printStackTrace();
             System.err.println("Error de carga en componentes para el Pedido #" + idPedido);
+        }
+    }
+
+    private void procesarDevolucionParcial() {
+        int filaPedido = tablaPedidosActivos.getSelectedRow();
+        int filaDetalle = tablaDetalleProductos.getSelectedRow();
+
+        if (filaPedido == -1 || filaDetalle == -1) {
+            JOptionPane.showMessageDialog(this, "Seleccione un producto de la lista inferior.", "Atención", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int modelRowPedido = tablaPedidosActivos.convertRowIndexToModel(filaPedido);
+        Integer idPedido = (Integer) modelPedidos.getValueAt(modelRowPedido, 0);
+        
+        String sku = (String) modelDetalle.getValueAt(filaDetalle, 0);
+        String descripcion = (String) modelDetalle.getValueAt(filaDetalle, 1);
+        int cantMax = Integer.parseInt(modelDetalle.getValueAt(filaDetalle, 2).toString());
+
+        // Diálogo para pedir la cantidad a devolver
+        SpinnerNumberModel spinnerModel = new SpinnerNumberModel(1, 1, cantMax, 1);
+        JSpinner spinner = new JSpinner(spinnerModel);
+        
+        JPanel panel = new JPanel(new GridLayout(0, 1, 5, 5));
+        panel.add(new JLabel("Producto: " + descripcion + " (" + sku + ")"));
+        panel.add(new JLabel("Cantidad a devolver (Máx: " + cantMax + "):"));
+        panel.add(spinner);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Devolución parcial - Pedido #" + idPedido, JOptionPane.OK_CANCEL_OPTION);
+        
+        if (result == JOptionPane.OK_OPTION) {
+            int cantADevolver = (Integer) spinner.getValue();
+            
+           try {
+                // Ejecuta la transacción real en la base de datos
+                boolean exito = pedidoDAO.devolverProductoIndividual(idPedido, sku, cantADevolver);
+                
+                if (exito) {
+                    JOptionPane.showMessageDialog(this, "Se reintegraron " + cantADevolver + " unidad(es) de '" + descripcion + "' al inventario.");
+                    cargarPedidosActivos(); // Recarga las tablas con las cantidades y totales actualizados
+                }
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "Error al procesar devolución: " + e.getMessage(), "Error DB", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
@@ -195,5 +296,11 @@ public class GestionOperativaPanel extends JPanel {
                 JOptionPane.showMessageDialog(this, "Error: " + e.getMessage(), "Error DB", JOptionPane.ERROR_MESSAGE);
             }
         }
+    }
+
+    private static String normalizarTexto(String texto) {
+    if (texto == null) return "";
+    String temp = java.text.Normalizer.normalize(texto, java.text.Normalizer.Form.NFD);
+    return temp.replaceAll("\\p{M}", "").toLowerCase();
     }
 }

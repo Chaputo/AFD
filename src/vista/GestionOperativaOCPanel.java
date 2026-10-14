@@ -1,7 +1,10 @@
 package vista;
+
 import modelo.OrdenDeCompra; 
 import persistencia.OrdenDeCompraDAO; 
 import persistencia.ConexionDB;
+import util.ExporterExcel;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
@@ -27,6 +30,7 @@ public class GestionOperativaOCPanel extends JPanel {
     private JCheckBox chkMostrarTodo; 
     private JButton btnActualizarEstado;
     private JButton btnRecargar;
+    private JButton btnExportarExcel;
 
     private static class SucursalItem {
         int id;
@@ -34,6 +38,7 @@ public class GestionOperativaOCPanel extends JPanel {
         public SucursalItem(int id, String nombre) { this.id = id; this.nombre = nombre; }
         @Override public String toString() { return nombre; }
     }
+
     public GestionOperativaOCPanel() {
         setLayout(new BorderLayout(10, 10));
         setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -59,6 +64,7 @@ public class GestionOperativaOCPanel extends JPanel {
         };
         tablaOCActivas = new JTable(modelOC);
         tablaOCActivas.setRowHeight(25);
+        tablaOCActivas.getColumnModel().getColumn(2).setCellRenderer(new CurrencyCellRenderer());
         sorter = new TableRowSorter<>(modelOC);
         tablaOCActivas.setRowSorter(sorter);
     }
@@ -70,6 +76,9 @@ public class GestionOperativaOCPanel extends JPanel {
         };
         tablaDetalleProductos = new JTable(modelDetalle);
         tablaDetalleProductos.setRowHeight(23);
+        tablaDetalleProductos.getColumnModel().getColumn(2).setCellRenderer(new RightAlignedCellRenderer());
+        tablaDetalleProductos.getColumnModel().getColumn(3).setCellRenderer(new CurrencyCellRenderer());
+        tablaDetalleProductos.getColumnModel().getColumn(4).setCellRenderer(new CurrencyCellRenderer()); 
     }
 
     private JPanel crearPanelSuperior() {
@@ -78,10 +87,13 @@ public class GestionOperativaOCPanel extends JPanel {
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         btnActualizarEstado = new JButton("🔄 Cambiar estado");
         btnRecargar = new JButton("↻ Recargar lista");
+        btnExportarExcel = new JButton("Exportar a Excel");
         btnActualizarEstado.setBackground(new Color(255, 165, 0));
         btnActualizarEstado.setForeground(Color.WHITE);
         panelBotones.add(btnActualizarEstado);
         panelBotones.add(btnRecargar);
+        panelBotones.add(btnExportarExcel);
+
         JPanel panelBusqueda = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         chkMostrarTodo = new JCheckBox("Mostrar historial completo");
         panelBusqueda.add(chkMostrarTodo);
@@ -94,26 +106,51 @@ public class GestionOperativaOCPanel extends JPanel {
     }
 
     private void agregarListeners() {
-        btnActualizarEstado.addActionListener(e -> mostrarDialogoCambioEstado());
-        btnRecargar.addActionListener(e -> cargarOrdenesCompra());
-        chkMostrarTodo.addActionListener(e -> cargarOrdenesCompra());
-        tablaOCActivas.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) { 
-                cargarDetalleProductosSeleccionados();
+    btnActualizarEstado.addActionListener(e -> mostrarDialogoCambioEstado());
+    btnRecargar.addActionListener(e -> cargarOrdenesCompra());
+    btnExportarExcel.addActionListener(e -> {
+        if (tablaOCActivas.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "No hay datos en la tabla para exportar.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        ExporterExcel.exportarTabla(tablaOCActivas, "Ordenes_De_Compra");
+    });
+    chkMostrarTodo.addActionListener(e -> cargarOrdenesCompra());
+    tablaOCActivas.getSelectionModel().addListSelectionListener(e -> {
+        if (!e.getValueIsAdjusting()) { 
+            cargarDetalleProductosSeleccionados();
+        }
+    });
+
+    // Buscador insensible a tildes, acentos y mayúsculas
+    txtBuscador.addKeyListener(new java.awt.event.KeyAdapter() {
+        @Override
+        public void keyReleased(java.awt.event.KeyEvent evt) {
+            String busqueda = normalizarTexto(txtBuscador.getText());
+            
+            if (busqueda.trim().isEmpty()) {
+                sorter.setRowFilter(null);
+            } else {
+                sorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
+                    @Override
+                    public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
+                        // Evalúa: ID OC (0), Fecha (1), Estado (3), Proveedor (4), Usuario (5)
+                        int[] columnasAFiltrar = {0, 1, 3, 4, 5}; 
+                        
+                        for (int col : columnasAFiltrar) {
+                            String valorCelda = entry.getStringValue(col);
+                            String celdaNormalizada = normalizarTexto(valorCelda);
+                            if (celdaNormalizada.contains(busqueda)) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    }
+                });
             }
-        });
-        txtBuscador.addKeyListener(new java.awt.event.KeyAdapter() {
-            @Override
-            public void keyReleased(java.awt.event.KeyEvent evt) {
-                String texto = txtBuscador.getText();
-                if (texto.trim().isEmpty()) {
-                    sorter.setRowFilter(null);
-                } else {
-                    sorter.setRowFilter(RowFilter.regexFilter("(?i)" + texto, 0, 4));
-                }
-            }
-        });
-    }
+        }
+    });
+}
 
     private void cargarOrdenesCompra() {
         modelOC.setRowCount(0);
@@ -124,7 +161,7 @@ public class GestionOperativaOCPanel extends JPanel {
                 modelOC.addRow(new Object[]{
                     o.getId(), 
                     o.getFechaEmision().format(DATETIME_FORMAT), 
-                    String.format("$%.2f", o.getTotal()), 
+                    o.getTotal(), 
                     o.getEstado(), 
                     o.getNombreProveedor(), 
                     o.getNombreUsuario()  
@@ -145,14 +182,12 @@ public class GestionOperativaOCPanel extends JPanel {
         try {
             List<Object[]> lineas = ocDAO.buscarDetalleProductosPorOrden(idOC);
             for (Object[] linea : lineas) {
-                String precioFormateado = String.format("$%.2f", (Double) linea[3]);
-                String subtotalFormateado = String.format("$%.2f", (Double) linea[4]);
                 modelDetalle.addRow(new Object[]{
                     linea[0], 
                     linea[1], 
                     linea[2], 
-                    precioFormateado,
-                    subtotalFormateado
+                    linea[3],
+                    linea[4],
                 });
             }
         } catch (SQLException e) {
@@ -219,4 +254,11 @@ public class GestionOperativaOCPanel extends JPanel {
             }
         }
     }
+
+private static String normalizarTexto(String texto) {
+    if (texto == null) return "";
+    String temp = java.text.Normalizer.normalize(texto, java.text.Normalizer.Form.NFD);
+    return temp.replaceAll("\\p{M}", "").toLowerCase();
+}
+
 }

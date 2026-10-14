@@ -1,4 +1,5 @@
 package vista;
+
 import modelo.Cliente;
 import modelo.Pedido;
 import modelo.DetallePedido;
@@ -8,6 +9,8 @@ import modelo.SesionUsuario;
 import persistencia.ClienteDAO;
 import persistencia.PedidoDAO;
 import persistencia.ProductoDAO;
+import util.ExporterExcel;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
@@ -28,7 +31,7 @@ public class GestionPedidosPanel extends JPanel {
     private final ProductoDAO productoDAO = new ProductoDAO();
     private JTextField txtBuscarCliente, txtNombreCliente, txtIdCliente;
     private JTextField txtNombreProducto, txtCantidadProducto;
-    private JButton btnAgregar, btnQuitar, btnMas, btnMenos;
+    private JButton btnAgregar, btnQuitar, btnMas, btnMenos, btnExportarExcel;
     private JTable tablaCarrito;
     private JTable tablaBusqueda;
     private TableRowSorter<DefaultTableModel> sorter;
@@ -50,6 +53,7 @@ public class GestionPedidosPanel extends JPanel {
         setLayout(new BorderLayout(10, 10));
         btnAgregar = new JButton("Agregar");
         btnQuitar = new JButton("Eliminar seleccionado");
+        btnExportarExcel = new JButton("Exportar carrito a Excel");
         btnMas = new JButton("+");
         btnMenos = new JButton("-");
         txtCantidadProducto = new JTextField("1", 3);
@@ -71,6 +75,7 @@ public class GestionPedidosPanel extends JPanel {
         txtNombreCliente.setEditable(false);
         txtIdCliente = new JTextField(4);
         txtIdCliente.setEditable(false);
+        txtIdCliente.setHorizontalAlignment(JTextField.CENTER);
         panel.add(new JLabel("Buscar (Tel/Nom):"));
         panel.add(txtBuscarCliente);
         panel.add(new JLabel("ID:"));
@@ -81,53 +86,77 @@ public class GestionPedidosPanel extends JPanel {
     }
 
     private JPanel crearPanelProductos() {
-        JPanel panel = new JPanel(new BorderLayout(5, 5));
-        panel.setBorder(BorderFactory.createTitledBorder("Inventario de productos"));
-        txtNombreProducto = new JTextField(20);
-        txtNombreProducto.setToolTipText("Escribe para filtrar productos...");
-        DefaultTableModel modeloBase = new DefaultTableModel(new Object[]{"SKU", "Nombre", "Precio"}, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) { return false; }
-        };
-        tablaBusqueda = new JTable(modeloBase);
-        sorter = new TableRowSorter<>(modeloBase);
-        tablaBusqueda.setRowSorter(sorter);
-        cargarTodosLosProductos(modeloBase);
-        txtNombreProducto.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) { filtrar(); }
-            public void removeUpdate(javax.swing.event.DocumentEvent e) { filtrar(); }
-            public void changedUpdate(javax.swing.event.DocumentEvent e) { filtrar(); }
-            private void filtrar() {
-                String texto = txtNombreProducto.getText();
-                sorter.setRowFilter(texto.trim().isEmpty() ? null : RowFilter.regexFilter("(?i)" + texto, 1));
-            }
-        });
-        tablaBusqueda.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                int filaView = tablaBusqueda.getSelectedRow();
-                if (filaView != -1) {
-                    int filaModel = tablaBusqueda.convertRowIndexToModel(filaView);
-                    String sku = tablaBusqueda.getModel().getValueAt(filaModel, 0).toString();
-                    try {
-                        productoSeleccionado = productoDAO.buscarPorSku(sku);
-                    } catch (SQLException ex) {
-                        ex.printStackTrace();
+    JPanel panel = new JPanel(new BorderLayout(5, 5));
+    panel.setBorder(BorderFactory.createTitledBorder("Inventario de productos"));
+    txtNombreProducto = new JTextField(20);
+    txtNombreProducto.setToolTipText("Escribe para filtrar productos...");
+    
+    DefaultTableModel modeloBase = new DefaultTableModel(new Object[]{"SKU", "Nombre", "Precio"}, 0) {
+        @Override
+        public boolean isCellEditable(int row, int column) { return false; }
+    };
+    
+    tablaBusqueda = new JTable(modeloBase);
+    tablaBusqueda.getColumnModel().getColumn(2).setCellRenderer(new CurrencyCellRenderer());
+    sorter = new TableRowSorter<>(modeloBase);
+    tablaBusqueda.setRowSorter(sorter);
+    cargarTodosLosProductos(modeloBase);
+    
+    // DocumentListener con filtro insensible a tildes y mayúsculas
+    txtNombreProducto.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+        public void insertUpdate(javax.swing.event.DocumentEvent e) { filtrar(); }
+        public void removeUpdate(javax.swing.event.DocumentEvent e) { filtrar(); }
+        public void changedUpdate(javax.swing.event.DocumentEvent e) { filtrar(); }
+        
+        private void filtrar() {
+            String busqueda = normalizarTexto(txtNombreProducto.getText());
+            
+            if (busqueda.trim().isEmpty()) {
+                sorter.setRowFilter(null);
+            } else {
+                sorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
+                    @Override
+                    public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
+                        // Columna 1 corresponde al "Nombre" del producto
+                        String nombreProducto = entry.getStringValue(1); 
+                        String nombreNormalizado = normalizarTexto(nombreProducto);
+                        
+                        return nombreNormalizado.contains(busqueda);
                     }
+                });
+            }
+        }
+    });
+
+    tablaBusqueda.addMouseListener(new java.awt.event.MouseAdapter() {
+        @Override
+        public void mouseClicked(java.awt.event.MouseEvent e) {
+            int filaView = tablaBusqueda.getSelectedRow();
+            if (filaView != -1) {
+                int filaModel = tablaBusqueda.convertRowIndexToModel(filaView);
+                String sku = tablaBusqueda.getModel().getValueAt(filaModel, 0).toString();
+                try {
+                    productoSeleccionado = productoDAO.buscarPorSku(sku);
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
                 }
             }
-        });
-        panel.add(txtNombreProducto, BorderLayout.NORTH);
-        panel.add(new JScrollPane(tablaBusqueda), BorderLayout.CENTER);
-        JPanel panelInferior = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        panelInferior.add(new JLabel("Cant:"));
-        panelInferior.add(btnMenos);
-        panelInferior.add(txtCantidadProducto);
-        panelInferior.add(btnMas);
-        panelInferior.add(btnAgregar);
-        panel.add(panelInferior, BorderLayout.SOUTH);
-        return panel;
-    }
+        }
+    });
+
+    panel.add(txtNombreProducto, BorderLayout.NORTH);
+    panel.add(new JScrollPane(tablaBusqueda), BorderLayout.CENTER);
+    
+    JPanel panelInferior = new JPanel(new FlowLayout(FlowLayout.CENTER));
+    panelInferior.add(new JLabel("Cant:"));
+    panelInferior.add(btnMenos);
+    panelInferior.add(txtCantidadProducto);
+    panelInferior.add(btnMas);
+    panelInferior.add(btnAgregar);
+    
+    panel.add(panelInferior, BorderLayout.SOUTH);
+    return panel;
+}
 
     private JPanel crearPanelCarrito() {
         modelCarrito = new DefaultTableModel(new Object[]{"ID", "SKU", "Producto", "Cant.", "Precio U.", "Subtotal"}, 0) {
@@ -135,16 +164,26 @@ public class GestionPedidosPanel extends JPanel {
             public boolean isCellEditable(int row, int column) { return false; }
         };
         tablaCarrito = new JTable(modelCarrito);
+        
+        // Ocultar columna ID (0)
         tablaCarrito.getColumnModel().getColumn(0).setMinWidth(0);
         tablaCarrito.getColumnModel().getColumn(0).setMaxWidth(0);
-        JPanel panelSur = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+
+        // Alineación y Formato
+        tablaCarrito.getColumnModel().getColumn(3).setCellRenderer(new RightAlignedCellRenderer());
+        tablaCarrito.getColumnModel().getColumn(4).setCellRenderer(new CurrencyCellRenderer());
+        tablaCarrito.getColumnModel().getColumn(5).setCellRenderer(new CurrencyCellRenderer());
+
+        JPanel panelSur = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         panelSur.add(btnQuitar);
+        panelSur.add(btnExportarExcel);
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createTitledBorder("Detalle de la venta"));
         panel.add(new JScrollPane(tablaCarrito), BorderLayout.CENTER);
         panel.add(panelSur, BorderLayout.SOUTH);
         return panel;
     }
+
     private JPanel crearPanelFooter() {
         JPanel panel = new JPanel(new BorderLayout());
         lblTotal = new JLabel("TOTAL: $0.00", SwingConstants.RIGHT);
@@ -170,6 +209,7 @@ public class GestionPedidosPanel extends JPanel {
     private void agregarListeners() {
         btnAgregar.addActionListener(e -> agregarAlCarrito());
         btnQuitar.addActionListener(e -> quitarDelCarrito());
+        btnExportarExcel.addActionListener(e -> exportarCarritoExcel());
         btnFinalizarVenta.addActionListener(e -> intentarFinalizarVenta());
         btnMas.addActionListener(e -> incrementarCantidad(1));
         btnMenos.addActionListener(e -> incrementarCantidad(-1));
@@ -177,6 +217,14 @@ public class GestionPedidosPanel extends JPanel {
             @Override
             public void keyReleased(KeyEvent e) { buscarCliente(); }
         });
+    }
+
+    private void exportarCarritoExcel() {
+        if (tablaCarrito.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "No hay productos en el carrito para exportar.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        ExporterExcel.exportarTabla(tablaCarrito, "Detalle_Carrito_Venta");
     }
 
     private void cargarTodosLosProductos(DefaultTableModel modelo) {
@@ -259,13 +307,13 @@ public class GestionPedidosPanel extends JPanel {
     }
 
     private void buscarCliente() {
-    String termino = txtBuscarCliente.getText().trim();
-    if (termino.isEmpty()) {
-        clienteActual = null;
-        txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
-        txtNombreCliente.setText("Sin cliente");
-        return;
-    }
+        String termino = txtBuscarCliente.getText().trim();
+        if (termino.isEmpty()) {
+            clienteActual = null;
+            txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
+            txtNombreCliente.setText("Sin cliente");
+            return;
+        }
         try {
             List<Cliente> encontrado = clienteDAO.buscar(termino);
             if (!encontrado.isEmpty()) {
@@ -276,7 +324,8 @@ public class GestionPedidosPanel extends JPanel {
                 clienteActual = null;
                 txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
                 txtNombreCliente.setText("Sin cliente"); 
-            } } catch (SQLException e) { 
+            }
+        } catch (SQLException e) { 
             e.printStackTrace(); 
         }
     }
@@ -328,16 +377,24 @@ public class GestionPedidosPanel extends JPanel {
             if (cant + delta >= 1) txtCantidadProducto.setText(String.valueOf(cant + delta));
         } catch (NumberFormatException e) { txtCantidadProducto.setText("1"); }
     }
+
     private void limpiarCampos() {
-    modelCarrito.setRowCount(0);
-    clienteActual = null;
-    productoSeleccionado = null;
-    txtBuscarCliente.setText("");
-    txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
-    txtNombreCliente.setText("Sin cliente");
-    txtNombreProducto.setText("");
-    txtCantidadProducto.setText("1");
-    if (comboMetodoPago != null) comboMetodoPago.setSelectedIndex(0);
-    actualizarTotal();
-}
+        modelCarrito.setRowCount(0);
+        clienteActual = null;
+        productoSeleccionado = null;
+        txtBuscarCliente.setText("");
+        txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
+        txtNombreCliente.setText("Sin cliente");
+        txtNombreProducto.setText("");
+        txtCantidadProducto.setText("1");
+        if (comboMetodoPago != null) comboMetodoPago.setSelectedIndex(0);
+        actualizarTotal();
+    }
+
+    private static String normalizarTexto(String texto) {
+    if (texto == null) return "";
+    // Separa caracteres de sus acentos/tildes y elimina las marcas diacríticas
+    String temp = java.text.Normalizer.normalize(texto, java.text.Normalizer.Form.NFD);
+    return temp.replaceAll("\\p{M}", "").toLowerCase();
+    }
 }

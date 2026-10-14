@@ -1,3 +1,5 @@
+// Configuración personalizada para este proyecto
+// Forzar la ejecución de la depuración incluso si la compilación falla
 {
     "java.debug.settings.onBuildFailureProceed": true
 }

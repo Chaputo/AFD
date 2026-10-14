@@ -1,16 +1,38 @@
 package vista;
-import modelo.MovimientoStock;
-import modelo.Stock_SucursalDTO;
-import modelo.Usuario;
-import modelo.SesionUsuario;
-import persistencia.MovimientoStockDAO;
-import persistencia.Stock_SucursalDAOImpl;
-import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
-import java.awt.*;
-import java.sql.*;
+
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.table.DefaultTableModel;
+
+import modelo.MovimientoStock;
+import modelo.SesionUsuario;
+import modelo.Stock_SucursalDTO;
+import modelo.Usuario;
+import persistencia.MovimientoStockDAO;
+import persistencia.Stock_SucursalDAOImpl;
+import util.ExporterExcel;
 
 public class GestionInventarioPanel extends JPanel {
 
@@ -18,12 +40,13 @@ public class GestionInventarioPanel extends JPanel {
 
     private JComboBox<SucursalItem> comboSucursal;
     private JTextField txtSku, txtNombre, txtStockActual, txtBuscador;
-    private JButton btnActualizarStock, btnRefrescar;
+    private JButton btnActualizarStock, btnRefrescar, btnExportarExcel;
     private JTable tablaStock;
     private DefaultTableModel tableModel;
     private JPanel pGestion; 
     private final MovimientoStockDAO movimientoDAO = new MovimientoStockDAO();
     private final Stock_SucursalDAOImpl stockDAO = new Stock_SucursalDAOImpl();
+    private List<Stock_SucursalDTO> resultadosBusquedaActual;
 
     public GestionInventarioPanel() {
         setLayout(new BorderLayout(15, 15));
@@ -33,9 +56,16 @@ public class GestionInventarioPanel extends JPanel {
         comboSucursal = new JComboBox<>();
         cargarComboSucursales();
         panelFiltro.add(comboSucursal);
+        
+        JPanel panelAccionesNorte = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         btnRefrescar = new JButton("🔄 Refrescar");
+        btnExportarExcel = new JButton("Exportar a Excel");
+        panelAccionesNorte.add(btnRefrescar);
+        panelAccionesNorte.add(btnExportarExcel);
+
         panelNorte.add(panelFiltro, BorderLayout.WEST);
-        panelNorte.add(btnRefrescar, BorderLayout.EAST);
+        panelNorte.add(panelAccionesNorte, BorderLayout.EAST);
+        
         configurarTabla();
         JPanel panelIzquierdo = crearPanelFormulario(); 
         add(panelNorte, BorderLayout.NORTH);
@@ -60,7 +90,7 @@ public class GestionInventarioPanel extends JPanel {
         }
     }
 
-    private void cargarComboSucursales() {
+    public void cargarComboSucursales() {
         comboSucursal.removeAllItems();
         String sql = "SELECT id_sucursal, nombre FROM sucursales ORDER BY nombre";
         try (Connection conn = persistencia.ConexionDB.getConnection();
@@ -104,6 +134,7 @@ public class GestionInventarioPanel extends JPanel {
             txtBuscador.setText(""); 
             cargarDatosInventario();
         });
+
         tablaStock.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 int fila = tablaStock.getSelectedRow();
@@ -115,6 +146,7 @@ public class GestionInventarioPanel extends JPanel {
                 }
             }
         });
+
         txtBuscador.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { accionarFiltro(); }
             @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { accionarFiltro(); }
@@ -128,18 +160,32 @@ public class GestionInventarioPanel extends JPanel {
                 }
             }
         });
+
         btnActualizarStock.addActionListener(e -> ejecutarMovimiento());
+
         btnRefrescar.addActionListener(e -> {
-            txtBuscador.setText("");
-            cargarDatosInventario();
+            String texto = txtBuscador.getText().trim();
+            if (texto.length() >= 3) {
+                buscarProductoGlobal(texto);
+            } else {
+                cargarDatosInventario();
+            }
+        });
+
+        btnExportarExcel.addActionListener(e -> {
+            if (tablaStock.getRowCount() == 0) {
+                JOptionPane.showMessageDialog(this, "No hay datos en la tabla para exportar.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            ExporterExcel.exportarTabla(tablaStock, "Inventario_Stock");
         });
     }
 
     private void buscarProductoGlobal(String criterio) {
         tableModel.setRowCount(0);
         try {
-            List<Stock_SucursalDTO> resultados = stockDAO.buscarStockGlobal(criterio);
-            for (Stock_SucursalDTO s : resultados) {
+            resultadosBusquedaActual = stockDAO.buscarStockGlobal(criterio);
+            for (Stock_SucursalDTO s : resultadosBusquedaActual) {
                 String estado = (s.getCantidadDisponible() <= 5) ? "⚠️ BAJO" : "✅ OK";
                 tableModel.addRow(new Object[]{
                     s.getSkuProducto(), 
@@ -173,6 +219,7 @@ public class GestionInventarioPanel extends JPanel {
         txtSku = new JTextField(12); txtSku.setEditable(false);
         txtNombre = new JTextField(12); txtNombre.setEditable(false);
         txtStockActual = new JTextField(12);
+        txtStockActual.setHorizontalAlignment(JTextField.RIGHT);
         btnActualizarStock = new JButton("Actualizar Stock");
         btnActualizarStock.setBackground(new Color(41, 128, 185));
         btnActualizarStock.setForeground(Color.WHITE);
@@ -190,11 +237,14 @@ public class GestionInventarioPanel extends JPanel {
     }
 
     private void configurarTabla() {
-        String[] columnas = {"SKU", "Producto", "Stock actual", "Ubicación/Mín.", "Estado"};
+        String[] columnas = {"SKU", "Producto", "Stock actual", "Mínimo", "Estado"};
         tableModel = new DefaultTableModel(columnas, 0) {
             @Override public boolean isCellEditable(int row, int column) { return false; }
         };
         tablaStock = new JTable(tableModel);
+        tablaStock.setRowHeight(23);
+        tablaStock.getColumnModel().getColumn(2).setCellRenderer(new RightAlignedCellRenderer());
+        tablaStock.getColumnModel().getColumn(3).setCellRenderer(new RightAlignedCellRenderer());
     }
 
     private void ejecutarMovimiento() {
@@ -229,7 +279,16 @@ public class GestionInventarioPanel extends JPanel {
             mov.setCantidad(diferenciaCalculada);
             mov.setFecha(LocalDateTime.now());
             mov.setTipo(diferenciaCalculada > 0 ? "INGRESO" : "EGRESO");
-            mov.setIdSucursal(((SucursalItem)comboSucursal.getSelectedItem()).id);
+            int idSucursalDestino;
+            String busqueda = txtBuscador.getText().trim();
+
+            if (!busqueda.isEmpty() && resultadosBusquedaActual != null && modelRow < resultadosBusquedaActual.size()) {
+                idSucursalDestino = resultadosBusquedaActual.get(modelRow).getIdSucursal();
+            } else {
+                idSucursalDestino = ((SucursalItem) comboSucursal.getSelectedItem()).id;
+            }
+
+            mov.setIdSucursal(idSucursalDestino);
             if (movimientoDAO.registrarIngreso(mov)) {
                 JOptionPane.showMessageDialog(this, "¡Inventario reajustado con éxito!");
                 cargarDatosInventario();
