@@ -36,7 +36,7 @@ INSERT INTO `movimiento_stock` (`id_movimiento`, `fecha`, `tipo`, `cantidad`, `s
 -- Dumping data for table `orden_compra`
 --
 
-INSERT INTO `orden_compra` (`id_oc`, `id_proveedor`, `id_usuario`, `fecha_emision`, `total`, `estado`) VALUES (1,15,12,'2026-06-01 08:37:17',43125.00,'RECIBIDA'),(4,16,12,'2026-06-01 08:49:04',44000.00,'RECIBIDA'),(5,4,12,'2026-06-11 22:26:35',60000.00,'RECIBIDA'),(6,2,12,'2026-06-26 14:36:55',60000.00,'RECIBIDA'),(7,15,12,'2026-07-07 21:51:11',75000.00,'RECIBIDA'),(8,15,12,'2026-07-07 21:58:55',50000.00,'RECIBIDA'),(9,15,12,'2026-07-07 22:06:12',50000.00,'RECIBIDA'),(10,11,12,'2026-07-12 03:26:48',6000.00,'CANCELADA'),(11,21,12,'2026-07-12 03:27:12',104900.00,'RECIBIDA'),(12,15,8,'2026-07-13 01:03:52',72000.00,'RECIBIDA'),(13,15,8,'2026-07-13 01:06:36',60000.00,'RECIBIDA'),(14,15,12,'2026-07-13 01:17:22',45500.00,'RECIBIDA'),(15,15,12,'2026-07-13 11:47:26',100000.00,'RECIBIDA'),(16,15,12,'2026-07-13 11:48:08',100000.00,'RECIBIDA'),(17,15,12,'2026-07-24 14:18:22',4.00,'RECIBIDA'),(18,15,12,'2026-08-24 08:39:52',96000.00,'RECIBIDA'),(19,15,12,'2026-09-03 13:24:17',107270.00,'RECIBIDA'),(20,13,7,'2026-09-08 17:49:43',150000.00,'RECIBIDA');
+INSERT INTO `orden_compra` (`id_oc`, `id_proveedor`, `id_usuario`, `fecha_emision`, `total`, `estado`) VALUES (1,22,12,'2026-06-01 08:37:17',43125.00,'RECIBIDA'),(4,16,12,'2026-06-01 08:49:04',44000.00,'RECIBIDA'),(5,4,12,'2026-06-11 22:26:35',60000.00,'RECIBIDA'),(6,2,12,'2026-06-26 14:36:55',60000.00,'RECIBIDA'),(7,9,12,'2026-07-07 21:51:11',75000.00,'RECIBIDA'),(8,3,12,'2026-07-07 21:58:55',50000.00,'RECIBIDA'),(9,25,12,'2026-07-07 22:06:12',50000.00,'RECIBIDA'),(10,11,12,'2026-07-12 03:26:48',6000.00,'CANCELADA'),(11,21,12,'2026-07-12 03:27:12',104900.00,'RECIBIDA'),(12,20,8,'2026-07-13 01:03:52',72000.00,'RECIBIDA'),(13,9,8,'2026-07-13 01:06:36',60000.00,'RECIBIDA'),(14,15,12,'2026-07-13 01:17:22',45500.00,'RECIBIDA'),(15,21,12,'2026-07-13 11:47:26',100000.00,'RECIBIDA'),(16,20,12,'2026-07-13 11:48:08',100000.00,'RECIBIDA'),(17,3,12,'2026-07-24 14:18:22',4.00,'RECIBIDA'),(18,20,12,'2026-08-24 08:39:52',96000.00,'RECIBIDA'),(19,22,12,'2026-09-03 13:24:17',107270.00,'RECIBIDA'),(20,13,7,'2026-09-08 17:49:43',150000.00,'RECIBIDA');
 
 --
 -- Dumping data for table `pedido_detalle`
@@ -79,6 +79,11 @@ INSERT INTO `sucursales` (`id_sucursal`, `nombre`, `direccion`) VALUES (1,'Bella
 --
 
 INSERT INTO `usuarios` (`id_usuario`, `nombre_completo`, `nombre_usuario`, `password_hash`, `rol`, `activo`) VALUES (5,'Axel Olmos','axel','pbkdf2_sha256$600000$DFL/7jtha0SyK2GWEHYtWg==$rQF4mqSJc9hjH95g0WjMBeMLDhkC5xCsuHFnw05CH54=','VENDEDOR',1),(6,'Agustín Farrán','farran','pbkdf2_sha256$600000$88lSVuyjE34CfV7qiFMdYQ==$LOWtwryHlNF/lTCedxPjiCNHfth7bDne89iJ+99fPYQ=','ADMIN',1),(7,'Franco Verdu','franco','pbkdf2_sha256$600000$WhJL7eoLcs/5/fRAHNqqZg==$pq9TUFy+RqOemjzTD4YMZhygGmrBSQHWSILM6/WUeGs=','ADMIN',1),(8,'Agustin Acosta','agus','pbkdf2_sha256$600000$n89BE4xYD0Z90KcsYIbhsg==$LZBujUPsemUc0Iga6VrbtBFlYAHeleY0zYk40NiHCr8=','VENDEDOR',1),(9,'Matias Torres','matito','pbkdf2_sha256$600000$6Ru2zrA9EbsU2HTlfCg4PQ==$5/OQGXYsiqvg+ADsXlQC2KgQalS9yht60mtecGgHlXg=','GERENTE',1),(10,'Sofia Sabatini','sofi','pbkdf2_sha256$600000$bzsEdDDm1RdPtkx+Lfh3Fw==$Z/fIKanYiWwuqcgCAExH+F3qyUy2QlKeXHrZzCd660Y=','VENDEDOR',1),(11,'Carolina Fernandez','caro','pbkdf2_sha256$600000$0GVRIq7HqvOu2GEV0vSz+Q==$PKguM8Whdl4rhdpHEP66yxZ/nGxO+V9cfYPXWuNNBhM=','VENDEDOR',1),(12,'Lucas Acosta','lucas','pbkdf2_sha256$600000$pCBBy8zIuhvKuVTCBJwb7A==$xGUm40KDuZ8kmJJh12fURk8A0bMuCyO785KwwvX1mow=','ADMIN',1),(13,'Mario Farrán','mario','pbkdf2_sha256$600000$TXH5nDjdg32ilnNSU4d/JA==$lXimWwCx/DfyBj7ffuPgWWgOvYxKhX5xQzQAYL43fds=','GERENTE',1),(14,'Pedro Farrán','pedro','pbkdf2_sha256$600000$2f9YTu3PS5V/B9eLhNOy5Q==$T38nOw8wUloi+ORcOH8Vt9rK77+f+xeU9PyPn1EF6Hw=','GERENTE',1);
+--
+-- Proveedor por línea de OC: las líneas cargadas antes toman el proveedor de su OC
+--
+
+UPDATE `linea_oc` l JOIN `orden_compra` o ON o.id_oc = l.id_oc SET l.id_proveedor = o.id_proveedor WHERE l.id_proveedor IS NULL;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

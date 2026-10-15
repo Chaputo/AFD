@@ -9,6 +9,7 @@ public class Sucursal {
     private int id;
     private String nombre;
     private String direccion;
+    private boolean activa = true; // las desactivadas no se muestran en el resto del sistema
 
     /**
      * Constructor para la creación de una nueva sucursal antes de ser registrada en la base de datos.
@@ -42,6 +43,8 @@ public class Sucursal {
     public void setId(int id) { this.id = id; }
     public void setNombre(String nombre) { this.nombre = nombre; }
     public void setDireccion(String direccion) { this.direccion = direccion; }
+    public boolean isActiva() { return activa; }
+    public void setActiva(boolean activa) { this.activa = activa; }
 
     /**
      * Devuelve el nombre de la sucursal.

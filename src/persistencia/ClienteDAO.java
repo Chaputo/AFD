@@ -135,32 +135,4 @@ public class ClienteDAO {
             return pstmt.executeUpdate() > 0;
         }
     }
-    
-    /**
-     * Busca clientes activos cuyo nombre o teléfono coincidan parcialmente con el término provisto.
-     * 
-     * @param termino Texto o número a coincidir (LIKE).
-     * @return Lista de clientes que coinciden con el criterio de búsqueda.
-     * @throws SQLException Si ocurre un error en la consulta.
-     */
-    public List<Cliente> buscar(String termino) throws SQLException {
-        List<Cliente> clientes = new ArrayList<>();
-        String SQL = "SELECT id_cliente, nombre, telefono, direccion FROM cliente " +
-                     "WHERE activo = 1 AND (telefono LIKE ? OR nombre LIKE ?)";
-        
-        try (Connection conn = ConexionDB.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(SQL)) {
-            
-            String terminoLike = "%" + termino + "%";
-            pstmt.setString(1, terminoLike);
-            pstmt.setString(2, terminoLike);
-            
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    clientes.add(mapearCliente(rs));
-                }
-            }
-        }
-        return clientes;
-    }
 }

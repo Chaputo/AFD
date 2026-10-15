@@ -21,9 +21,7 @@ public class MovimientoStockDAO {
         conn.setAutoCommit(false);
 
         // Obtener el ID del usuario en sesión
-        int idUsuario = (modelo.SesionUsuario.getUsuario() != null)
-                ? modelo.SesionUsuario.getUsuario().getId()
-                : 1;
+        int idUsuario = modelo.SesionUsuario.getIdUsuarioOr(1);
 
         Stock_Sucursal actual = stockHandler.obtenerStockActual(conn, sku, idSucursal);
         int diferencia = stockDestino - (actual != null ? actual.getCantidad() : 0);

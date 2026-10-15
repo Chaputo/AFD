@@ -51,6 +51,7 @@ public class Cliente {
 
     @Override
     public String toString() {
-        return "Cliente [id=" + id + ", nombre=" + nombre + ", telefono=" + telefono + ", direccion=" + direccion + "]";
+        // Así se muestra en los desplegables: se puede buscar por nombre o por teléfono
+        return (telefono != null && !telefono.isBlank()) ? nombre + " · " + telefono : nombre;
     }
 }

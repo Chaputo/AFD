@@ -91,7 +91,7 @@ public class LoginFrame extends JFrame {
     private void cargarSucursalesDB() {
         try (Connection conn = ConexionDB.getConnection();
             Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery("SELECT id_sucursal, nombre FROM sucursales ORDER BY nombre")) {
+            ResultSet rs = stmt.executeQuery("SELECT id_sucursal, nombre FROM sucursales WHERE activa = 1 ORDER BY nombre")) {
             while (rs.next()) {
                 cmbSucursales.addItem(new SucursalItem(rs.getInt("id_sucursal"), rs.getString("nombre")));
             }

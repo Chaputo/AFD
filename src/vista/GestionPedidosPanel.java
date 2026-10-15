@@ -15,8 +15,6 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -29,7 +27,9 @@ public class GestionPedidosPanel extends JPanel {
     private final ClienteDAO clienteDAO = new ClienteDAO();
     private final PedidoDAO pedidoDAO = new PedidoDAO();
     private final ProductoDAO productoDAO = new ProductoDAO();
-    private JTextField txtBuscarCliente, txtNombreCliente, txtIdCliente;
+    private JTextField txtIdCliente;
+    private JComboBox<Cliente> cmbCliente;
+    private ComboBuscable<Cliente> buscadorCliente;
     private JTextField txtNombreProducto, txtCantidadProducto;
     private JButton btnAgregar, btnQuitar, btnMas, btnMenos, btnExportarExcel;
     private JTable tablaCarrito;
@@ -39,7 +39,6 @@ public class GestionPedidosPanel extends JPanel {
     private JLabel lblTotal;
     private JButton btnFinalizarVenta;
     private JComboBox<String> comboMetodoPago;
-    private Cliente clienteActual = null;
     private Producto productoSeleccionado = null;
     private double totalVenta = 0.0;
     private int idSucursalActual;
@@ -70,18 +69,23 @@ public class GestionPedidosPanel extends JPanel {
     private JPanel crearPanelCliente() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         panel.setBorder(BorderFactory.createTitledBorder("Información del cliente"));
-        txtBuscarCliente = new JTextField(12);
-        txtNombreCliente = new JTextField(18);
-        txtNombreCliente.setEditable(false);
+        // Desplegable con buscador: se escribe nombre o teléfono y se elige de la lista
+        cmbCliente = new JComboBox<>();
+        cmbCliente.setPreferredSize(new Dimension(320, 26));
+        cmbCliente.setToolTipText("Escribí nombre o teléfono para buscar el cliente");
+        buscadorCliente = ComboBuscable.aplicar(cmbCliente, Cliente.class);
+        cmbCliente.addActionListener(e -> {
+            Cliente c = buscadorCliente.getSeleccionado();
+            txtIdCliente.setText(String.valueOf(c != null ? c.getId() : ID_CLIENTE_GENERICO));
+        });
         txtIdCliente = new JTextField(4);
         txtIdCliente.setEditable(false);
         txtIdCliente.setHorizontalAlignment(JTextField.CENTER);
-        panel.add(new JLabel("Buscar (Tel/Nom):"));
-        panel.add(txtBuscarCliente);
+        panel.add(new JLabel("Cliente:"));
+        panel.add(cmbCliente);
         panel.add(new JLabel("ID:"));
         panel.add(txtIdCliente);
-        panel.add(new JLabel("Cliente:"));
-        panel.add(txtNombreCliente);
+        recargarClientes();
         return panel;
     }
 
@@ -213,10 +217,6 @@ public class GestionPedidosPanel extends JPanel {
         btnFinalizarVenta.addActionListener(e -> intentarFinalizarVenta());
         btnMas.addActionListener(e -> incrementarCantidad(1));
         btnMenos.addActionListener(e -> incrementarCantidad(-1));
-        txtBuscarCliente.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyReleased(KeyEvent e) { buscarCliente(); }
-        });
     }
 
     private void exportarCarritoExcel() {
@@ -306,44 +306,16 @@ public class GestionPedidosPanel extends JPanel {
         lblTotal.setText(String.format("TOTAL: $%.2f", totalVenta));
     }
 
-    private void buscarCliente() {
-        String termino = txtBuscarCliente.getText().trim();
-        if (termino.isEmpty()) {
-            clienteActual = null;
-            txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
-            txtNombreCliente.setText("Sin cliente");
-            return;
-        }
+    // Carga los clientes activos manteniendo el elegido; si no había ninguno, queda el genérico ("Sin cliente")
+    void recargarClientes() {
+        Cliente anterior = buscadorCliente.getSeleccionado();
+        int idElegido = (anterior != null) ? anterior.getId() : ID_CLIENTE_GENERICO;
         try {
-            List<Cliente> encontrado = clienteDAO.buscar(termino);
-            // Solo se asigna si el resultado es único o coincide exacto con nombre/teléfono
-            Cliente elegido = null;
-            if (encontrado.size() == 1) {
-                elegido = encontrado.get(0);
-            } else {
-                for (Cliente c : encontrado) {
-                    if (termino.equalsIgnoreCase(c.getNombre()) || termino.equals(c.getTelefono())) {
-                        elegido = c;
-                        break;
-                    }
-                }
-            }
-            if (elegido != null) {
-                clienteActual = elegido;
-                txtIdCliente.setText(String.valueOf(clienteActual.getId()));
-                txtNombreCliente.setText(clienteActual.getNombre());
-            } else if (encontrado.size() > 1) {
-                clienteActual = null;
-                txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
-                txtNombreCliente.setText(encontrado.size() + " coincidencias: seguí escribiendo...");
-            } else {
-                clienteActual = null;
-                txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
-                txtNombreCliente.setText("Sin cliente"); 
-            }
-        } catch (SQLException e) { 
-            e.printStackTrace(); 
+            buscadorCliente.setItems(clienteDAO.listarTodos());
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Error al cargar clientes: " + e.getMessage(), "Error DB", JOptionPane.ERROR_MESSAGE);
         }
+        buscadorCliente.seleccionar(c -> c.getId() == idElegido);
     }
 
     private void intentarFinalizarVenta() {
@@ -359,7 +331,9 @@ public class GestionPedidosPanel extends JPanel {
 
     private void ejecutarTransaccionVenta() {
         try {
-            int clienteId = (clienteActual != null) ? clienteActual.getId() : ID_CLIENTE_GENERICO;
+            // Sin cliente elegido (o texto que no coincide con ninguno) se registra como cliente genérico (ID 1)
+            Cliente cliente = buscadorCliente.getSeleccionado();
+            int clienteId = (cliente != null) ? cliente.getId() : ID_CLIENTE_GENERICO;
             String metodoSeleccionado = comboMetodoPago.getSelectedItem().toString();
             String estadoInicial = metodoSeleccionado.equalsIgnoreCase("Pedidos Ya") ? "Pendiente" : "Finalizado";
             Pedido pedido = new Pedido();
@@ -396,11 +370,8 @@ public class GestionPedidosPanel extends JPanel {
 
     private void limpiarCampos() {
         modelCarrito.setRowCount(0);
-        clienteActual = null;
         productoSeleccionado = null;
-        txtBuscarCliente.setText("");
-        txtIdCliente.setText(String.valueOf(ID_CLIENTE_GENERICO));
-        txtNombreCliente.setText("Sin cliente");
+        buscadorCliente.seleccionar(c -> c.getId() == ID_CLIENTE_GENERICO);
         txtNombreProducto.setText("");
         txtCantidadProducto.setText("1");
         if (comboMetodoPago != null) comboMetodoPago.setSelectedIndex(0);

@@ -8,16 +8,19 @@ public class SucursalDAO {
 
     public List<Sucursal> listarTodas() throws SQLException {
         List<Sucursal> lista = new ArrayList<>();
-        String sql = "SELECT id_sucursal, nombre, direccion FROM sucursales ORDER BY id_sucursal ASC";
+        // Incluye las desactivadas: esta lista es la de administración, donde se pueden reactivar
+        String sql = "SELECT id_sucursal, nombre, direccion, activa FROM sucursales ORDER BY activa DESC, id_sucursal ASC";
         try (Connection con = ConexionDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                lista.add(new Sucursal(
+                Sucursal s = new Sucursal(
                     rs.getInt("id_sucursal"),
                     rs.getString("nombre"),
                     rs.getString("direccion")
-                ));
+                );
+                s.setActiva(rs.getBoolean("activa"));
+                lista.add(s);
             }
         }
         return lista;
@@ -44,42 +47,33 @@ public class SucursalDAO {
         }
     }
 
-    public boolean eliminar(int id) throws SQLException {
+    /**
+     * Activa o desactiva una sucursal (borrado lógico). Sus pedidos, stock y movimientos se conservan:
+     * una sucursal desactivada deja de mostrarse en el sistema y vuelve a aparecer al reactivarla.
+     */
+    public boolean cambiarEstado(int id, boolean activa) throws SQLException {
         try (Connection con = ConexionDB.getConnection()) {
             con.setAutoCommit(false);
             try {
-                // Bloquea la sucursal mientras se valida y se borra
-                try (PreparedStatement ps = con.prepareStatement("SELECT id_sucursal FROM sucursales WHERE id_sucursal = ? FOR UPDATE")) {
-                    ps.setInt(1, id);
-                    ps.executeQuery().close();
-                }
-                // Las tablas no tienen FK a sucursales: se valida acá para no dejar ventas ni stock huérfanos
-                String sqlUso = "SELECT (SELECT COUNT(*) FROM pedidos WHERE id_sucursal = ?) AS pedidos, " +
-                                "(SELECT COUNT(*) FROM stock_sucursal WHERE id_sucursal = ? AND cantidad_disponible <> 0) AS stock, " +
-                                "(SELECT COUNT(*) FROM movimiento_stock WHERE id_sucursal = ?) AS movimientos";
-                try (PreparedStatement ps = con.prepareStatement(sqlUso)) {
-                    ps.setInt(1, id);
-                    ps.setInt(2, id);
-                    ps.setInt(3, id);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next() && (rs.getInt("pedidos") > 0 || rs.getInt("stock") > 0 || rs.getInt("movimientos") > 0)) {
-                            throw new SQLException("La sucursal tiene " + rs.getInt("pedidos") + " pedido(s), "
-                                    + rs.getInt("stock") + " producto(s) con stock y " + rs.getInt("movimientos")
-                                    + " movimiento(s) registrados. No se puede eliminar.");
-                        }
+                if (!activa) {
+                    // Bloquea las sucursales activas para que dos desactivaciones simultáneas no dejen el sistema sin ninguna
+                    int activas = 0;
+                    try (PreparedStatement ps = con.prepareStatement("SELECT id_sucursal FROM sucursales WHERE activa = 1 FOR UPDATE");
+                         ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) activas++;
+                    }
+                    if (activas <= 1) {
+                        throw new SQLException("Es la única sucursal activa: no se puede desactivar.");
                     }
                 }
-                try (PreparedStatement ps = con.prepareStatement("DELETE FROM stock_sucursal WHERE id_sucursal = ? AND cantidad_disponible = 0")) {
-                    ps.setInt(1, id);
-                    ps.executeUpdate();
-                }
-                boolean borrada;
-                try (PreparedStatement ps = con.prepareStatement("DELETE FROM sucursales WHERE id_sucursal = ?")) {
-                    ps.setInt(1, id);
-                    borrada = ps.executeUpdate() > 0;
+                boolean ok;
+                try (PreparedStatement ps = con.prepareStatement("UPDATE sucursales SET activa = ? WHERE id_sucursal = ?")) {
+                    ps.setBoolean(1, activa);
+                    ps.setInt(2, id);
+                    ok = ps.executeUpdate() > 0;
                 }
                 con.commit();
-                return borrada;
+                return ok;
             } catch (SQLException e) {
                 con.rollback();
                 throw e;

@@ -30,7 +30,7 @@ public class Stock_SucursalDAOImpl {
         "FROM producto p " +
         "CROSS JOIN sucursales s " +
         "LEFT JOIN stock_sucursal ss ON p.sku = ss.sku_producto AND s.id_sucursal = ss.id_sucursal " +
-        "WHERE p.nombre LIKE ? OR p.sku LIKE ? " + 
+        "WHERE (p.nombre LIKE ? OR p.sku LIKE ?) AND s.activa = 1 " + 
         "ORDER BY p.nombre, s.nombre";
 
 

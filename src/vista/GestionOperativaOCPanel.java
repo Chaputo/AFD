@@ -70,7 +70,7 @@ public class GestionOperativaOCPanel extends JPanel {
     }
 
     private void inicializarModeloDetalle() {
-        modelDetalle = new DefaultTableModel(new Object[]{"SKU Producto", "Descripción / Nombre", "Cantidad", "Precio Unitario", "Subtotal"}, 0) {
+        modelDetalle = new DefaultTableModel(new Object[]{"SKU Producto", "Descripción / Nombre", "Cantidad", "Precio Unitario", "Subtotal", "Proveedor"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
         };
@@ -188,6 +188,7 @@ public class GestionOperativaOCPanel extends JPanel {
                     linea[2], 
                     linea[3],
                     linea[4],
+                    linea[5]
                 });
             }
         } catch (SQLException e) {
@@ -210,7 +211,7 @@ public class GestionOperativaOCPanel extends JPanel {
         JComboBox<SucursalItem> cmbSucursales = new JComboBox<>();
         try (Connection conn = ConexionDB.getConnection();
             Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery("SELECT id_sucursal, nombre FROM sucursales ORDER BY nombre")) {
+            ResultSet rs = stmt.executeQuery("SELECT id_sucursal, nombre FROM sucursales WHERE activa = 1 ORDER BY nombre")) {
             while (rs.next()) {
                 cmbSucursales.addItem(new SucursalItem(rs.getInt("id_sucursal"), rs.getString("nombre")));
             }

@@ -200,7 +200,8 @@ public class PedidoDAO {
                     try (ResultSet rs = psDet.executeQuery()) {
                         while (rs.next()) {
                             int idSucursal = rs.getInt("id_sucursal");
-                            int idUsuario = rs.getInt("id_usuario");
+                            // Quien cambia el estado (sin sesión: el vendedor del pedido)
+                            int idUsuario = modelo.SesionUsuario.getIdUsuarioOr(rs.getInt("id_usuario"));
                             String sku = rs.getString("sku_producto");
                             int cantidad = rs.getInt("cantidad");
                             int stockNuevo = obtenerStockActual(con, sku, idSucursal);
@@ -237,6 +238,8 @@ public class PedidoDAO {
         if (!incluirInactivos) {
             sql += "WHERE p.estado_entrega IN ('Pendiente', 'En camino') ";
         }
+        // Los pedidos de sucursales desactivadas no se muestran
+        sql += (incluirInactivos ? "WHERE " : "AND ") + "p.id_sucursal IN (SELECT id_sucursal FROM sucursales WHERE activa = 1) ";
         sql += "ORDER BY p.fecha_pedido DESC";
         try (Connection con = ConexionDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql);
@@ -307,7 +310,8 @@ public class PedidoDAO {
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         idSucursal = rs.getInt("id_sucursal");
-                        idUsuario = rs.getInt("id_usuario");
+                        // Quien registra la devolución (sin sesión: el vendedor del pedido)
+                        idUsuario = modelo.SesionUsuario.getIdUsuarioOr(rs.getInt("id_usuario"));
                     } else {
                         con.rollback();
                         return false;

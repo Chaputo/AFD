@@ -17,6 +17,14 @@ public class SesionUsuario {
     }
 
     /**
+     * ID del usuario en sesión, para registrar quién hace cada acción (p. ej. en la auditoría).
+     * Si no hay sesión (procesos sin interfaz), devuelve el valor indicado.
+     */
+    public static int getIdUsuarioOr(int porDefecto) {
+        return (usuarioLogueado != null) ? usuarioLogueado.getId() : porDefecto;
+    }
+
+    /**
      * Cierra la sesión activa liberando la referencia del usuario autenticado.
      */
     public static void limpiarSesion() {

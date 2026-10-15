@@ -71,11 +71,14 @@ CREATE TABLE `linea_oc` (
   `cantidad` int(11) NOT NULL,
   `precio_compra_unitario` decimal(10,2) NOT NULL,
   `subtotal` decimal(10,2) NOT NULL,
+  `id_proveedor` int(11) DEFAULT NULL,
   PRIMARY KEY (`id_linea`),
   KEY `id_oc` (`id_oc`),
   KEY `linea_oc_ibfk_2` (`sku_producto`),
+  KEY `linea_oc_ibfk_3` (`id_proveedor`),
   CONSTRAINT `linea_oc_ibfk_1` FOREIGN KEY (`id_oc`) REFERENCES `orden_compra` (`id_oc`),
-  CONSTRAINT `linea_oc_ibfk_2` FOREIGN KEY (`sku_producto`) REFERENCES `producto` (`sku`)
+  CONSTRAINT `linea_oc_ibfk_2` FOREIGN KEY (`sku_producto`) REFERENCES `producto` (`sku`),
+  CONSTRAINT `linea_oc_ibfk_3` FOREIGN KEY (`id_proveedor`) REFERENCES `proveedor` (`id_proveedor`)
 ) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -229,6 +232,7 @@ CREATE TABLE `sucursales` (
   `id_sucursal` int(11) NOT NULL AUTO_INCREMENT,
   `nombre` varchar(100) NOT NULL,
   `direccion` varchar(255) DEFAULT NULL,
+  `activa` tinyint(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id_sucursal`),
   UNIQUE KEY `nombre` (`nombre`)
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

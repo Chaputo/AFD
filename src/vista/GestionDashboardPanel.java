@@ -9,12 +9,17 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.sql.SQLException;
 import java.text.NumberFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerDateModel;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -34,6 +39,7 @@ import org.jfree.data.category.DefaultCategoryDataset;
 
 import persistencia.DashboardDAO;
 import persistencia.DashboardDAOImpl;
+import persistencia.Periodo;
 import util.ExporterExcel;
 
 public class GestionDashboardPanel extends JPanel {
@@ -43,6 +49,9 @@ public class GestionDashboardPanel extends JPanel {
     // Filtros
     private JComboBox<ItemSucursal> cmbSucursal;
     private JComboBox<ItemMes> cmbMes;
+    private JCheckBox chkRangoFechas;
+    private JSpinner spinDesde;
+    private JSpinner spinHasta;
 
     // KPIs
     private JLabel lblKpiVentas;
@@ -150,16 +159,74 @@ public class GestionDashboardPanel extends JPanel {
         btnExportar.setFont(new Font("SansSerif", Font.BOLD, 11));
         btnExportar.addActionListener(e -> exportarResumenDashboard());
 
-        panelAcciones.add(lblSucursal);
-        panelAcciones.add(cmbSucursal);
-        panelAcciones.add(lblMes);
-        panelAcciones.add(cmbMes);
+        // Rango de fechas (opcional): si está tildado, reemplaza al filtro de mes
+        chkRangoFechas = new JCheckBox("Fechas:");
+        chkRangoFechas.setForeground(Color.WHITE);
+        chkRangoFechas.setOpaque(false);
+        chkRangoFechas.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+
+        java.util.Calendar inicioAnio = java.util.Calendar.getInstance();
+        inicioAnio.set(java.util.Calendar.DAY_OF_YEAR, 1);
+        spinDesde = crearSpinnerFecha(inicioAnio.getTime());
+        spinHasta = crearSpinnerFecha(new java.util.Date());
+        JLabel lblDesde = new JLabel("Desde");
+        JLabel lblHasta = new JLabel("Hasta");
+        for (JLabel l : new JLabel[] { lblDesde, lblHasta }) {
+            l.setForeground(Color.WHITE);
+            l.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        }
+
+        chkRangoFechas.addActionListener(e -> {
+            boolean rango = chkRangoFechas.isSelected();
+            spinDesde.setEnabled(rango);
+            spinHasta.setEnabled(rango);
+            cmbMes.setEnabled(!rango);
+            cargarDatosDashboard();
+        });
+        spinDesde.addChangeListener(e -> { if (chkRangoFechas.isSelected()) cargarDatosDashboard(); });
+        spinHasta.addChangeListener(e -> { if (chkRangoFechas.isSelected()) cargarDatosDashboard(); });
+
+        JPanel panelFiltros = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        panelFiltros.setOpaque(false);
+        panelFiltros.setBorder(new EmptyBorder(8, 0, 0, 0));
+        panelFiltros.add(lblSucursal);
+        panelFiltros.add(cmbSucursal);
+        panelFiltros.add(lblMes);
+        panelFiltros.add(cmbMes);
+        panelFiltros.add(chkRangoFechas);
+        panelFiltros.add(lblDesde);
+        panelFiltros.add(spinDesde);
+        panelFiltros.add(lblHasta);
+        panelFiltros.add(spinHasta);
+
         panelAcciones.add(btnActualizar);
         panelAcciones.add(btnExportar);
 
         header.add(titulo, BorderLayout.WEST);
         header.add(panelAcciones, BorderLayout.EAST);
+        header.add(panelFiltros, BorderLayout.SOUTH);
         return header;
+    }
+
+    private JSpinner crearSpinnerFecha(java.util.Date inicial) {
+        JSpinner spinner = new JSpinner(new SpinnerDateModel(inicial, null, null, java.util.Calendar.DAY_OF_MONTH));
+        spinner.setEditor(new JSpinner.DateEditor(spinner, "dd/MM/yyyy"));
+        spinner.setPreferredSize(new Dimension(105, 26));
+        spinner.setEnabled(false);
+        return spinner;
+    }
+
+    // Período elegido: rango de fechas (si está tildado), un mes, o todo el año actual
+    private Periodo getPeriodoSeleccionado() {
+        if (chkRangoFechas.isSelected()) {
+            return Periodo.rango(aLocalDate(spinDesde), aLocalDate(spinHasta));
+        }
+        Integer mes = getMesSeleccionado();
+        return (mes != null) ? Periodo.mes(mes) : Periodo.anioActual();
+    }
+
+    private static LocalDate aLocalDate(JSpinner spinner) {
+        return ((java.util.Date) spinner.getValue()).toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
     }
 
     private void cargarComboMeses() {
@@ -295,12 +362,12 @@ public class GestionDashboardPanel extends JPanel {
     public void cargarDatosDashboard() {
         try {
             Integer idSucursal = getSucursalSeleccionadaId();
-            Integer mes = getMesSeleccionado();
+            Periodo periodo = getPeriodoSeleccionado();
             NumberFormat fmtMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "AR"));
 
             // 1. KPIs
-            double ventasMes = dashboardDAO.obtenerVentasTotalesMes(idSucursal, mes);
-            double ticketProm = dashboardDAO.obtenerTicketPromedio(idSucursal, mes);
+            double ventasMes = dashboardDAO.obtenerVentasTotales(idSucursal, periodo);
+            double ticketProm = dashboardDAO.obtenerTicketPromedio(idSucursal, periodo);
             int criticos = dashboardDAO.obtenerAlertasStockCritico(idSucursal);
             int pendientes = dashboardDAO.obtenerPedidosPendientes(idSucursal);
 
@@ -320,7 +387,7 @@ public class GestionDashboardPanel extends JPanel {
             actualizarPanel(panelGraficoTicketPromedio, new ChartPanel(chartTicket));
 
             // 3. Gráfico 2: Ventas por Día de la Semana
-            Map<String, Integer> ventasDia = dashboardDAO.obtenerVentasPorDiaSemana(idSucursal, mes);
+            Map<String, Integer> ventasDia = dashboardDAO.obtenerVentasPorDiaSemana(idSucursal, periodo);
             DefaultCategoryDataset dsDia = new DefaultCategoryDataset();
             if (ventasDia != null) {
                 ventasDia.forEach((dia, cant) -> dsDia.addValue(cant, "Ventas", dia));
@@ -330,7 +397,7 @@ public class GestionDashboardPanel extends JPanel {
             actualizarPanel(panelGraficoDiaSemana, new ChartPanel(chartDia));
 
             // 4. Gráfico 3: Horarios Más Concurridos
-            Map<String, Integer> horarios = dashboardDAO.obtenerHorariosConcurridos(idSucursal, mes);
+            Map<String, Integer> horarios = dashboardDAO.obtenerHorariosConcurridos(idSucursal, periodo);
             DefaultCategoryDataset dsHorarios = new DefaultCategoryDataset();
             if (horarios != null) {
                 horarios.forEach((hora, cant) -> dsHorarios.addValue(cant, "Transacciones", hora));
@@ -344,7 +411,7 @@ public class GestionDashboardPanel extends JPanel {
             actualizarPanel(panelGraficoHorarios, new ChartPanel(chartHorarios));
 
             // 5. Gráfico 4: Top 5 Productos Más Vendidos
-            Map<String, Integer> topProd = dashboardDAO.obtenerTop5ProductosVendidosMes(idSucursal, mes);
+            Map<String, Integer> topProd = dashboardDAO.obtenerTop5ProductosVendidos(idSucursal, periodo);
             DefaultCategoryDataset dsTop = new DefaultCategoryDataset();
             if (topProd != null) {
                 topProd.forEach((prod, cant) -> dsTop.addValue(cant, "Vendidos", prod));
@@ -363,7 +430,7 @@ public class GestionDashboardPanel extends JPanel {
         DefaultTableModel modelResumen = new DefaultTableModel(new Object[]{"Métrica / Indicador", "Valor"}, 0);
         
         modelResumen.addRow(new Object[]{"Sucursal", cmbSucursal.getSelectedItem().toString()});
-        modelResumen.addRow(new Object[]{"Mes", cmbMes.getSelectedItem().toString()});
+        modelResumen.addRow(new Object[]{"Período", getPeriodoSeleccionado().descripcion()});
         modelResumen.addRow(new Object[]{"Ventas del Período", lblKpiVentas.getText()});
         modelResumen.addRow(new Object[]{"Ticket Promedio", lblKpiTicketPromedio.getText()});
         modelResumen.addRow(new Object[]{"Alertas Stock Crítico", " " + lblKpiCriticos.getText()});

@@ -171,7 +171,7 @@ public class GestionFacturacionPanel extends JPanel {
         cmbFiltroSucursal.addItem(new SucursalFiltroItem(0, "Todas las Sucursales"));
         try (Connection conn = ConexionDB.getConnection();
              Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT id_sucursal, nombre FROM sucursales ORDER BY nombre")) {
+             ResultSet rs = stmt.executeQuery("SELECT id_sucursal, nombre FROM sucursales WHERE activa = 1 ORDER BY nombre")) {
             while (rs.next()) {
                 cmbFiltroSucursal.addItem(new SucursalFiltroItem(rs.getInt("id_sucursal"), rs.getString("nombre")));
             }
@@ -180,7 +180,7 @@ public class GestionFacturacionPanel extends JPanel {
         }
     }
 
-    private void cargarMovimientosFacturacion() {
+    void cargarMovimientosFacturacion() {
         modelMovimientos.setRowCount(0);
         modelDetalle.setRowCount(0);
         String sql = "SELECT p.id_pedido, p.fecha_pedido, 'VENTA' AS tipo, s.nombre AS sucursal, " +
@@ -189,7 +189,7 @@ public class GestionFacturacionPanel extends JPanel {
                      "JOIN sucursales s ON p.id_sucursal = s.id_sucursal " + 
                      "JOIN usuarios u ON p.id_usuario = u.id_usuario " + 
                      "LEFT JOIN cliente c ON p.id_cliente = c.id_cliente " +
-                     "WHERE p.estado_entrega NOT IN ('Devuelto', 'Cancelado') " + // no se facturan ventas anuladas
+                     "WHERE p.estado_entrega NOT IN ('Devuelto', 'Cancelado') AND s.activa = 1 " + // no se facturan ventas anuladas
                      "ORDER BY p.fecha_pedido DESC";
         try (Connection conn = ConexionDB.getConnection();
             Statement stmt = conn.createStatement();

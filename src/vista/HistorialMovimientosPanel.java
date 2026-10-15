@@ -122,7 +122,7 @@ public class HistorialMovimientosPanel extends JPanel {
     public void cargarComboSucursales() {
         comboSucursal.removeAllItems();
         comboSucursal.addItem(new SucursalItem(0, "Todas las sucursales"));
-        String sql = "SELECT id_sucursal, nombre FROM sucursales ORDER BY nombre";
+        String sql = "SELECT id_sucursal, nombre FROM sucursales WHERE activa = 1 ORDER BY nombre";
         try (Connection conn = persistencia.ConexionDB.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -251,7 +251,7 @@ public class HistorialMovimientosPanel extends JPanel {
     "LEFT JOIN sucursales s ON m.id_sucursal = s.id_sucursal " +
     "LEFT JOIN usuarios u ON m.id_usuario = u.id_usuario " +
     "LEFT JOIN stock_sucursal ss ON m.sku_producto = ss.sku_producto AND m.id_sucursal = ss.id_sucursal " +
-    "WHERE 1=1 "
+    "WHERE COALESCE(s.activa, 1) = 1 " // las sucursales desactivadas no se muestran
 );
 
     List<Object> parametros = new ArrayList<>();

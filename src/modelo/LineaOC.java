@@ -13,6 +13,8 @@ public class LineaOC {
     private double precioCompraUnitario;
     private double subtotal;
     private String nombreProducto;
+    private int idProveedor;          // cada línea puede ser de un proveedor distinto
+    private String nombreProveedor;
 
     /**
      * Constructor completo para instancias recuperadas desde la base de datos.
@@ -82,4 +84,8 @@ public class LineaOC {
     public void setNombreProducto(String nombreProducto) { this.nombreProducto = nombreProducto; }
     public void setCantidad(int cantidad) { this.cantidad = cantidad; }
     public void setCantidadPedida(int cantidad) { this.cantidad = cantidad; }
+    public int getIdProveedor() { return idProveedor; }
+    public void setIdProveedor(int idProveedor) { this.idProveedor = idProveedor; }
+    public String getNombreProveedor() { return nombreProveedor; }
+    public void setNombreProveedor(String nombreProveedor) { this.nombreProveedor = nombreProveedor; }
 }                                                                                  

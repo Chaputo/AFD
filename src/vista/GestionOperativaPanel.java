@@ -190,6 +190,20 @@ public class GestionOperativaPanel extends JPanel {
         }
     }
 
+    // Vuelve a seleccionar un pedido después de recargar la lista (dispara la carga de su detalle)
+    private void seleccionarPedido(int idPedido) {
+        for (int i = 0; i < modelPedidos.getRowCount(); i++) {
+            if (((Integer) modelPedidos.getValueAt(i, 0)) == idPedido) {
+                int filaVista = tablaPedidosActivos.convertRowIndexToView(i);
+                if (filaVista != -1) {
+                    tablaPedidosActivos.setRowSelectionInterval(filaVista, filaVista);
+                    tablaPedidosActivos.scrollRectToVisible(tablaPedidosActivos.getCellRect(filaVista, 0, true));
+                }
+                return;
+            }
+        }
+    }
+
     private void cargarDetalleProductosSeleccionados() {
         modelDetalle.setRowCount(0); 
         btnDevolverItem.setEnabled(false);
@@ -230,9 +244,13 @@ public class GestionOperativaPanel extends JPanel {
         String descripcion = (String) modelDetalle.getValueAt(filaDetalle, 1);
         int cantMax = Integer.parseInt(modelDetalle.getValueAt(filaDetalle, 2).toString());
 
-        // Diálogo para pedir la cantidad a devolver
+        // Diálogo para pedir la cantidad a devolver (entre 1 y lo comprado)
         SpinnerNumberModel spinnerModel = new SpinnerNumberModel(1, 1, cantMax, 1);
         JSpinner spinner = new JSpinner(spinnerModel);
+        // No deja tipear valores fuera de rango ni texto: el campo rechaza la tecla en lugar de aceptarla
+        JFormattedTextField campo = ((JSpinner.DefaultEditor) spinner.getEditor()).getTextField();
+        ((javax.swing.text.DefaultFormatter) campo.getFormatter()).setAllowsInvalid(false);
+        ((javax.swing.text.DefaultFormatter) campo.getFormatter()).setCommitsOnValidEdit(true);
         
         JPanel panel = new JPanel(new GridLayout(0, 1, 5, 5));
         panel.add(new JLabel("Producto: " + descripcion + " (" + sku + ")"));
@@ -242,8 +260,17 @@ public class GestionOperativaPanel extends JPanel {
         int result = JOptionPane.showConfirmDialog(this, panel, "Devolución parcial - Pedido #" + idPedido, JOptionPane.OK_CANCEL_OPTION);
         
         if (result == JOptionPane.OK_OPTION) {
+            try {
+                spinner.commitEdit();
+            } catch (java.text.ParseException ignorada) {
+                // se usa el último valor válido del spinner
+            }
             int cantADevolver = (Integer) spinner.getValue();
-            
+            if (cantADevolver < 1 || cantADevolver > cantMax) {
+                JOptionPane.showMessageDialog(this, "La cantidad a devolver debe estar entre 1 y " + cantMax + ".", "Cantidad inválida", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
            try {
                 // Ejecuta la transacción real en la base de datos
                 boolean exito = pedidoDAO.devolverProductoIndividual(idPedido, sku, cantADevolver);
@@ -251,6 +278,7 @@ public class GestionOperativaPanel extends JPanel {
                 if (exito) {
                     JOptionPane.showMessageDialog(this, "Se reintegraron " + cantADevolver + " unidad(es) de '" + descripcion + "' al inventario.");
                     cargarPedidosActivos(); // Recarga las tablas con las cantidades y totales actualizados
+                    seleccionarPedido(idPedido);
                 }
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(this, "Error al procesar devolución: " + e.getMessage(), "Error DB", JOptionPane.ERROR_MESSAGE);
@@ -292,7 +320,8 @@ public class GestionOperativaPanel extends JPanel {
             try {
                 if (pedidoDAO.actualizarEstadoConStock(id, anterior, nuevo)) {
                     JOptionPane.showMessageDialog(this, "Estado actualizado con éxito.");
-                    cargarPedidosActivos(); 
+                    cargarPedidosActivos();
+                    seleccionarPedido(id); // si el pedido sigue en la lista (p.ej. con historial completo)
                 }
             } catch (SQLException e) {
                 JOptionPane.showMessageDialog(this, "Error: " + e.getMessage(), "Error DB", JOptionPane.ERROR_MESSAGE);

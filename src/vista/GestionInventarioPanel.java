@@ -90,7 +90,7 @@ public class GestionInventarioPanel extends JPanel {
 
     public void cargarComboSucursales() {
         comboSucursal.removeAllItems();
-        String sql = "SELECT id_sucursal, nombre FROM sucursales ORDER BY nombre";
+        String sql = "SELECT id_sucursal, nombre FROM sucursales WHERE activa = 1 ORDER BY nombre";
         try (Connection conn = persistencia.ConexionDB.getConnection();
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(sql)) {
@@ -102,6 +102,16 @@ public class GestionInventarioPanel extends JPanel {
             }
         } catch (SQLException e) {
             System.err.println("Error al cargar combos: " + e.getMessage());
+        }
+    }
+
+    // Recarga respetando la vista actual: búsqueda global activa o sucursal del combo
+    void refrescar() {
+        String texto = txtBuscador.getText().trim();
+        if (texto.length() >= 3) {
+            buscarProductoGlobal(texto);
+        } else {
+            cargarDatosInventario();
         }
     }
 

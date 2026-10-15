@@ -32,7 +32,7 @@ public class GestionSucursalesPanel extends JPanel {
         inicializarComponentes();
 
         // Tabla de Sucursales
-        tableModel = new DefaultTableModel(new Object[]{"ID", "Nombre de Sucursal", "Dirección"}, 0) {
+        tableModel = new DefaultTableModel(new Object[]{"ID", "Nombre de Sucursal", "Dirección", "Estado"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
         };
@@ -80,7 +80,7 @@ public class GestionSucursalesPanel extends JPanel {
 
         btnGuardar = new JButton("Guardar / Actualizar");
         btnLimpiar = new JButton("Limpiar / Nuevo");
-        btnEliminar = new JButton("Eliminar Sucursal");
+        btnEliminar = new JButton("Desactivar Sucursal");
         btnRecargar = new JButton("↻ Refrescar");
         btnExportarExcel = new JButton("Exportar a Excel");
 
@@ -180,7 +180,7 @@ public class GestionSucursalesPanel extends JPanel {
 
     private void agregarListeners() {
         btnGuardar.addActionListener(e -> guardarOActualizarSucursal());
-        btnEliminar.addActionListener(e -> eliminarSucursal());
+        btnEliminar.addActionListener(e -> cambiarEstadoSucursal());
         btnLimpiar.addActionListener(e -> limpiarCampos());
         btnRecargar.addActionListener(e -> cargarSucursales());
         btnExportarExcel.addActionListener(e -> exportarExcel());
@@ -247,6 +247,7 @@ public class GestionSucursalesPanel extends JPanel {
         txtNombre.setText("");
         txtDireccion.setText("");
         tablaSucursales.clearSelection();
+        btnEliminar.setText("Desactivar Sucursal");
         btnEliminar.setEnabled(false);
     }
 
@@ -258,6 +259,8 @@ public class GestionSucursalesPanel extends JPanel {
         Object dir = tableModel.getValueAt(filaModelo, 2);
         txtDireccion.setText(dir != null ? dir.toString() : "");
 
+        // El botón activa o desactiva según el estado de la sucursal elegida
+        btnEliminar.setText(ESTADO_ACTIVA.equals(tableModel.getValueAt(filaModelo, 3)) ? "Desactivar Sucursal" : "Activar Sucursal");
         btnEliminar.setEnabled(true);
     }
 
@@ -269,7 +272,8 @@ public class GestionSucursalesPanel extends JPanel {
                 tableModel.addRow(new Object[]{
                     s.getId(),
                     s.getNombre(),
-                    s.getDireccion()
+                    s.getDireccion(),
+                    s.isActiva() ? ESTADO_ACTIVA : ESTADO_DESACTIVADA
                 });
             }
         } catch (SQLException e) {
@@ -313,52 +317,45 @@ public class GestionSucursalesPanel extends JPanel {
         }
     }
 
-    private void eliminarSucursal() {
+    private static final String ESTADO_ACTIVA = "Activa";
+    private static final String ESTADO_DESACTIVADA = "Desactivada";
+
+    private void cambiarEstadoSucursal() {
         if (txtId.getText().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Seleccione una sucursal para eliminar.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Seleccione una sucursal.", "Advertencia", JOptionPane.WARNING_MESSAGE);
             return;
         }
-
         int id = Integer.parseInt(txtId.getText());
         String nombreSucursal = txtNombre.getText().trim();
+        boolean desactivar = btnEliminar.getText().startsWith("Desactivar");
 
-        // --- PRIMERA CONFIRMACIÓN ---
-        int primerConfirm = JOptionPane.showConfirmDialog(
-            this,
-            "¿Está seguro de que desea eliminar la sucursal \"" + nombreSucursal + "\"?\nEsta acción afectará las tablas asociadas.",
-            "Primera Confirmación",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.WARNING_MESSAGE
-        );
-
-        if (primerConfirm != JOptionPane.YES_OPTION) {
+        // No se puede desactivar la sucursal en la que se está trabajando
+        Window ventana = SwingUtilities.getWindowAncestor(this);
+        if (desactivar && ventana instanceof MainFrame && ((MainFrame) ventana).getIdSucursalSesion() == id) {
+            JOptionPane.showMessageDialog(this, "No se puede desactivar la sucursal de la sesión actual.", "Acción denegada", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // --- SEGUNDA CONFIRMACIÓN (DEFINITIVA) ---
-        int segundoConfirm = JOptionPane.showConfirmDialog(
-            this,
-            "⚠️ ¡ATENCIÓN CRÍTICA! ⚠️\n\n¿REALMENTE desea eliminar la sucursal \"" + nombreSucursal + "\"?\nEsta operación no se puede deshacer.",
-            "Confirmación Definitiva",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.ERROR_MESSAGE
-        );
+        String mensaje = desactivar
+            ? "¿Desactivar la sucursal \"" + nombreSucursal + "\"?\n\n"
+              + "Dejará de mostrarse en el sistema (login, ventas, stock, reportes y dashboard).\n"
+              + "Sus datos se conservan y vuelven a verse si la reactivás."
+            : "¿Activar la sucursal \"" + nombreSucursal + "\"?\n\nVolverá a estar disponible en todo el sistema.";
+        int confirm = JOptionPane.showConfirmDialog(this, mensaje, desactivar ? "Desactivar sucursal" : "Activar sucursal",
+            JOptionPane.YES_NO_OPTION, desactivar ? JOptionPane.WARNING_MESSAGE : JOptionPane.QUESTION_MESSAGE);
+        if (confirm != JOptionPane.YES_OPTION) return;
 
-        if (segundoConfirm == JOptionPane.YES_OPTION) {
-            try {
-                if (sucursalDAO.eliminar(id)) {
-                    JOptionPane.showMessageDialog(this, "Sucursal eliminada con éxito.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
-                    limpiarCampos();
-                    cargarSucursales();
-                    notificarModificacion();
-                } else {
-                    JOptionPane.showMessageDialog(this, "No se pudo eliminar la sucursal.", "Error", JOptionPane.ERROR_MESSAGE);
-                }
-            } catch (SQLException e) {
-                JOptionPane.showMessageDialog(this, e.getMessage(),
-                    "No se puede eliminar la sucursal", JOptionPane.ERROR_MESSAGE);
-                e.printStackTrace();
+        try {
+            if (sucursalDAO.cambiarEstado(id, !desactivar)) {
+                JOptionPane.showMessageDialog(this, "Sucursal " + (desactivar ? "desactivada." : "activada."), "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                limpiarCampos();
+                cargarSucursales();
+                notificarModificacion();
+            } else {
+                JOptionPane.showMessageDialog(this, "No se pudo cambiar el estado de la sucursal.", "Error", JOptionPane.ERROR_MESSAGE);
             }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "No se pudo cambiar el estado", JOptionPane.ERROR_MESSAGE);
         }
     }
 

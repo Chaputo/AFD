@@ -10,7 +10,7 @@ public class ReporteDAOImpl implements ReporteDAO {
     @Override
     public List<String> obtenerNombresSucursales() throws SQLException {
         List<String> sucursales = new ArrayList<>();
-        String sql = "SELECT nombre FROM sucursales ORDER BY id_sucursal";
+        String sql = "SELECT nombre FROM sucursales WHERE activa = 1 ORDER BY id_sucursal";
         try (Connection conn = ConexionDB.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -26,7 +26,7 @@ public class ReporteDAOImpl implements ReporteDAO {
         List<Object[]> datosReporte = new ArrayList<>();
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT p.sku AS id_item, p.nombre AS nombre_item, p.stockMinimo, ")
-           .append("COALESCE(SUM(ss.cantidad_disponible), 0) AS stock_total ");
+           .append("COALESCE(SUM(CASE WHEN suc.activa = 1 THEN ss.cantidad_disponible ELSE 0 END), 0) AS stock_total ");
         // Alias por posición (suc_0, suc_1...) para no depender de caracteres especiales del nombre
         for (int i = 0; i < nombresSucursales.size(); i++) {
             String sucEscapada = nombresSucursales.get(i).replace("\\", "\\\\").replace("'", "''");
@@ -69,7 +69,7 @@ public class ReporteDAOImpl implements ReporteDAO {
         String sql = "SELECT COUNT(*) FROM stock_sucursal ss " +
                      "JOIN producto p ON p.sku = ss.sku_producto " +
                      "JOIN sucursales s ON s.id_sucursal = ss.id_sucursal " +
-                     "WHERE ss.cantidad_disponible < p.stockMinimo" +
+                     "WHERE ss.cantidad_disponible < p.stockMinimo AND s.activa = 1" +
                      (filtrar ? " AND ss.id_sucursal = ?" : "");
         try (Connection conn = ConexionDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {

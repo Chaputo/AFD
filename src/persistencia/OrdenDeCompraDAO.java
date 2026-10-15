@@ -30,12 +30,17 @@ public class OrdenDeCompraDAO {
         PreparedStatement psDetalle = null;
         ResultSet rs = null;
         String sqlCabecera = "INSERT INTO orden_compra (id_proveedor, id_usuario, fecha_emision, total, estado) VALUES (?, ?, ?, ?, ?)";
-        String sqlDetalle = "INSERT INTO linea_oc (id_oc, sku_producto, cantidad, precio_compra_unitario, subtotal) VALUES (?, ?, ?, ?, ?)";
+        String sqlDetalle = "INSERT INTO linea_oc (id_oc, sku_producto, cantidad, precio_compra_unitario, subtotal, id_proveedor) VALUES (?, ?, ?, ?, ?, ?)";
         try {
-            con = ConexionDB.getConnection(); 
-            con.setAutoCommit(false); 
+            con = ConexionDB.getConnection();
+            con.setAutoCommit(false);
+            // La cabecera guarda un proveedor principal (el de la primera línea); el detalle, el de cada ítem
+            int proveedorPrincipal = oc.getIdProveedor();
+            if (proveedorPrincipal <= 0 && !oc.getLineasOC().isEmpty()) {
+                proveedorPrincipal = oc.getLineasOC().get(0).getIdProveedor();
+            }
             psCabecera = con.prepareStatement(sqlCabecera, Statement.RETURN_GENERATED_KEYS);
-            psCabecera.setInt(1, oc.getIdProveedor()); 
+            psCabecera.setInt(1, proveedorPrincipal);
             psCabecera.setInt(2, oc.getIdUsuario());
             psCabecera.setTimestamp(3, Timestamp.valueOf(oc.getFechaEmision()));
             psCabecera.setDouble(4, oc.getTotal());
@@ -60,7 +65,8 @@ public class OrdenDeCompraDAO {
                 psDetalle.setInt(3, linea.getCantidad());
                 psDetalle.setDouble(4, linea.getPrecioCompraUnitario()); 
                 psDetalle.setDouble(5, linea.getSubtotal());
-                psDetalle.addBatch(); 
+                psDetalle.setInt(6, linea.getIdProveedor() > 0 ? linea.getIdProveedor() : proveedorPrincipal);
+                psDetalle.addBatch();
             }
             psDetalle.executeBatch();
             con.commit();
@@ -85,7 +91,11 @@ public class OrdenDeCompraDAO {
         ResultSet rs = null;
         StringBuilder sql = new StringBuilder(
             "SELECT o.id_oc, o.fecha_emision, o.total, o.estado, o.id_proveedor, o.id_usuario, " +
-            "p.nombre AS proveedor, u.nombre_completo AS usuario " +
+            // Todos los proveedores de las líneas de la OC (o el de la cabecera si no hay líneas con proveedor)
+            "COALESCE((SELECT GROUP_CONCAT(DISTINCT pl.nombre ORDER BY pl.nombre SEPARATOR ', ') " +
+            "          FROM linea_oc l JOIN proveedor pl ON pl.id_proveedor = l.id_proveedor " +
+            "          WHERE l.id_oc = o.id_oc), p.nombre) AS proveedor, " +
+            "u.nombre_completo AS usuario " +
             "FROM orden_compra o " +
             "INNER JOIN proveedor p ON o.id_proveedor = p.id_proveedor " +
             "INNER JOIN usuarios u ON o.id_usuario = u.id_usuario "
@@ -145,7 +155,8 @@ public class OrdenDeCompraDAO {
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) throw new SQLException("La OC #" + idOC + " no existe.");
                     estadoActual = rs.getString("estado");
-                    idUsuario = rs.getInt("id_usuario");
+                    // La auditoría registra a quien hace el cambio; sin sesión, al emisor de la OC
+                    idUsuario = modelo.SesionUsuario.getIdUsuarioOr(rs.getInt("id_usuario"));
                 }
             }
 
@@ -254,10 +265,14 @@ public class OrdenDeCompraDAO {
 
     public List<Object[]> buscarDetalleProductosPorOrden(int idOC) throws SQLException {
         List<Object[]> lista = new ArrayList<>();
-        String sql = "SELECT l.sku_producto, p.nombre AS producto_nombre, l.cantidad, l.precio_compra_unitario, l.subtotal " +
+        String sql = "SELECT l.sku_producto, p.nombre AS producto_nombre, l.cantidad, l.precio_compra_unitario, l.subtotal, " +
+                     "COALESCE(pv.nombre, pvc.nombre) AS proveedor " +
                      "FROM linea_oc l " +
                      "INNER JOIN producto p ON l.sku_producto = p.sku " +
-                     "WHERE l.id_oc = ?";    
+                     "INNER JOIN orden_compra o ON o.id_oc = l.id_oc " +
+                     "LEFT JOIN proveedor pv ON pv.id_proveedor = l.id_proveedor " +
+                     "LEFT JOIN proveedor pvc ON pvc.id_proveedor = o.id_proveedor " +
+                     "WHERE l.id_oc = ?";
         try (Connection con = ConexionDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, idOC);
@@ -268,7 +283,8 @@ public class OrdenDeCompraDAO {
                         rs.getString("producto_nombre"),
                         rs.getInt("cantidad"),
                         rs.getDouble("precio_compra_unitario"),
-                        rs.getDouble("subtotal")
+                        rs.getDouble("subtotal"),
+                        rs.getString("proveedor")
                     };
                     lista.add(fila);
                 }

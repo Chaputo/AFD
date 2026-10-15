@@ -33,6 +33,8 @@ public class MainFrame extends JFrame {
         tabbedPane.setFont(new Font("SansSerif", Font.BOLD, 13));
         add(tabbedPane, BorderLayout.CENTER);
         construirModulosSegunRol(usuarioActual.getRol());
+        // Las pestañas de consulta se recargan al entrar, para mostrar lo hecho en otras pestañas
+        tabbedPane.addChangeListener(e -> refrescarPestaniaActual());
         add(crearStatusBar(usuarioActual), BorderLayout.SOUTH);
     }
 
@@ -55,6 +57,20 @@ public class MainFrame extends JFrame {
         menuAyuda.add(itemAcercaDe);
         menuBar.add(menuAyuda);
         return menuBar;
+    }
+
+    public int getIdSucursalSesion() {
+        return idSucursalSesion;
+    }
+
+    private void refrescarPestaniaActual() {
+        Component c = tabbedPane.getSelectedComponent();
+        if (c instanceof GestionPedidosPanel) ((GestionPedidosPanel) c).recargarClientes();
+        else if (c instanceof HistorialMovimientosPanel) ((HistorialMovimientosPanel) c).cargarHistorialMovimientos();
+        else if (c instanceof GestionInventarioPanel) ((GestionInventarioPanel) c).refrescar();
+        else if (c instanceof GestionFacturacionPanel) ((GestionFacturacionPanel) c).cargarMovimientosFacturacion();
+        else if (c instanceof GestionReportePanel) ((GestionReportePanel) c).cargarStockConsolidado();
+        else if (c instanceof GestionDashboardPanel) ((GestionDashboardPanel) c).cargarDatosDashboard();
     }
 
     private void mostrarAcercaDe() {

@@ -19,19 +19,22 @@ public class DashboardDAOImpl implements DashboardDAO {
 
     // Solo cuentan como venta los pedidos que no fueron devueltos ni cancelados
     private static String ventaValida(String alias) {
-        return alias + "estado_entrega NOT IN ('Devuelto', 'Cancelado')";
+        return alias + "estado_entrega NOT IN ('Devuelto', 'Cancelado') AND " + sucursalActiva(alias);
     }
 
-    // Período del dashboard: un mes del año actual (MONTH = ?) o todo el año actual si no se elige mes
-    private static String condicionPeriodo(String alias, boolean filtrarMes) {
-        String anio = "YEAR(" + alias + "fecha_pedido) = YEAR(CURRENT_DATE())";
-        return filtrarMes ? "MONTH(" + alias + "fecha_pedido) = ? AND " + anio : anio;
+    // Las sucursales desactivadas no se muestran en el dashboard
+    private static String sucursalActiva(String alias) {
+        return alias + "id_sucursal IN (SELECT id_sucursal FROM sucursales WHERE activa = 1)";
+    }
+
+    private static boolean filtraSucursal(Integer idSucursal) {
+        return idSucursal != null && idSucursal > 0;
     }
 
     @Override
     public Map<Integer, String> obtenerSucursales() throws SQLException {
         Map<Integer, String> sucursales = new LinkedHashMap<>();
-        String sql = "SELECT id_sucursal, nombre FROM sucursales ORDER BY nombre";
+        String sql = "SELECT id_sucursal, nombre FROM sucursales WHERE activa = 1 ORDER BY nombre";
         try (Connection conn = obtenerConexion();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -43,50 +46,25 @@ public class DashboardDAOImpl implements DashboardDAO {
     }
 
     @Override
-    public double obtenerVentasTotalesMes(Integer idSucursal, Integer mes) throws SQLException {
-        boolean filtrarSucursal = (idSucursal != null && idSucursal > 0);
-        boolean filtrarMes = (mes != null && mes > 0);
-
-        String condicionFecha = condicionPeriodo("", filtrarMes) + " AND " + ventaValida("");
-
-        String sql = "SELECT COALESCE(SUM(total_pedido), 0) FROM pedidos WHERE " + condicionFecha +
-                     (filtrarSucursal ? " AND id_sucursal = ? " : "");
-
-        try (Connection conn = obtenerConexion();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            int paramIndex = 1;
-            if (filtrarMes) {
-                stmt.setInt(paramIndex++, mes);
-            }
-            if (filtrarSucursal) {
-                stmt.setInt(paramIndex, idSucursal);
-            }
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) return rs.getDouble(1);
-            }
-        }
-        return 0.0;
+    public double obtenerVentasTotales(Integer idSucursal, Periodo periodo) throws SQLException {
+        return valorAgregado("SUM(total_pedido)", idSucursal, periodo);
     }
 
     @Override
-    public double obtenerTicketPromedio(Integer idSucursal, Integer mes) throws SQLException {
-        boolean filtrarSucursal = (idSucursal != null && idSucursal > 0);
-        boolean filtrarMes = (mes != null && mes > 0);
+    public double obtenerTicketPromedio(Integer idSucursal, Periodo periodo) throws SQLException {
+        return valorAgregado("AVG(total_pedido)", idSucursal, periodo);
+    }
 
-        String condicionFecha = condicionPeriodo("", filtrarMes) + " AND " + ventaValida("");
-
-        String sql = "SELECT COALESCE(AVG(total_pedido), 0) FROM pedidos WHERE " + condicionFecha +
-                     (filtrarSucursal ? " AND id_sucursal = ? " : "");
+    // SUM / AVG de las ventas válidas del período (y sucursal, si se elige)
+    private double valorAgregado(String funcion, Integer idSucursal, Periodo periodo) throws SQLException {
+        boolean filtrarSucursal = filtraSucursal(idSucursal);
+        String sql = "SELECT COALESCE(" + funcion + ", 0) FROM pedidos WHERE " + periodo.condicion("") +
+                     " AND " + ventaValida("") + (filtrarSucursal ? " AND id_sucursal = ?" : "");
 
         try (Connection conn = obtenerConexion();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            int paramIndex = 1;
-            if (filtrarMes) {
-                stmt.setInt(paramIndex++, mes);
-            }
-            if (filtrarSucursal) {
-                stmt.setInt(paramIndex, idSucursal);
-            }
+            int paramIndex = periodo.cargarParametros(stmt, 1);
+            if (filtrarSucursal) stmt.setInt(paramIndex, idSucursal);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) return rs.getDouble(1);
             }
@@ -101,8 +79,8 @@ public class DashboardDAOImpl implements DashboardDAO {
 
     @Override
     public int obtenerPedidosPendientes(Integer idSucursal) throws SQLException {
-        boolean filtrar = (idSucursal != null && idSucursal > 0);
-        String sql = "SELECT COUNT(*) FROM pedidos WHERE estado_entrega = 'Pendiente' " +
+        boolean filtrar = filtraSucursal(idSucursal);
+        String sql = "SELECT COUNT(*) FROM pedidos WHERE estado_entrega = 'Pendiente' AND " + sucursalActiva("") + " " +
                      (filtrar ? "AND id_sucursal = ? " : "");
 
         try (Connection conn = obtenerConexion();
@@ -118,7 +96,7 @@ public class DashboardDAOImpl implements DashboardDAO {
     @Override
     public Map<String, Double> obtenerTicketPromedioUltimosMeses(Integer idSucursal) throws SQLException {
         Map<String, Double> datos = new LinkedHashMap<>();
-        boolean filtrar = (idSucursal != null && idSucursal > 0);
+        boolean filtrar = filtraSucursal(idSucursal);
         // Los 6 meses más recientes con ventas (se traen en orden descendente y se invierten)
         String sql = "SELECT DATE_FORMAT(MIN(fecha_pedido), '%m/%Y') AS mes, AVG(total_pedido) AS ticket_promedio " +
                      "FROM pedidos WHERE " + ventaValida("") + " " +
@@ -145,31 +123,23 @@ public class DashboardDAOImpl implements DashboardDAO {
     }
 
     @Override
-    public Map<String, Integer> obtenerTop5ProductosVendidosMes(Integer idSucursal, Integer mes) throws SQLException {
+    public Map<String, Integer> obtenerTop5ProductosVendidos(Integer idSucursal, Periodo periodo) throws SQLException {
         Map<String, Integer> datos = new LinkedHashMap<>();
-        boolean filtrarSucursal = (idSucursal != null && idSucursal > 0);
-        boolean filtrarMes = (mes != null && mes > 0);
-
-        String condicionMes = condicionPeriodo("pe.", filtrarMes) + " AND " + ventaValida("pe.");
+        boolean filtrarSucursal = filtraSucursal(idSucursal);
 
         String sql = "SELECT p.nombre, SUM(pd.cantidad) AS cantidad " +
                      "FROM pedido_detalle pd " +
                      "JOIN producto p ON pd.sku_producto = p.sku " +
                      "JOIN pedidos pe ON pd.id_pedido = pe.id_pedido " +
-                     "WHERE " + condicionMes + " " +
+                     "WHERE " + periodo.condicion("pe.") + " AND " + ventaValida("pe.") + " " +
                      (filtrarSucursal ? "AND pe.id_sucursal = ? " : "") +
                      "GROUP BY p.sku, p.nombre " +
                      "ORDER BY cantidad DESC LIMIT 5";
 
         try (Connection conn = obtenerConexion();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            int paramIndex = 1;
-            if (filtrarMes) {
-                stmt.setInt(paramIndex++, mes);
-            }
-            if (filtrarSucursal) {
-                stmt.setInt(paramIndex, idSucursal);
-            }
+            int paramIndex = periodo.cargarParametros(stmt, 1);
+            if (filtrarSucursal) stmt.setInt(paramIndex, idSucursal);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     datos.put(rs.getString("nombre"), rs.getInt("cantidad"));
@@ -180,7 +150,7 @@ public class DashboardDAOImpl implements DashboardDAO {
     }
 
     @Override
-    public Map<String, Integer> obtenerVentasPorDiaSemana(Integer idSucursal, Integer mes) throws SQLException {
+    public Map<String, Integer> obtenerVentasPorDiaSemana(Integer idSucursal, Periodo periodo) throws SQLException {
         Map<String, Integer> resultado = new LinkedHashMap<>();
         resultado.put("Dom", 0);
         resultado.put("Lun", 0);
@@ -190,28 +160,20 @@ public class DashboardDAOImpl implements DashboardDAO {
         resultado.put("Vie", 0);
         resultado.put("Sáb", 0);
 
-        boolean filtrarSucursal = (idSucursal != null && idSucursal > 0);
-        boolean filtrarMes = (mes != null && mes > 0);
-
-        StringBuilder sql = new StringBuilder(
-            "SELECT CASE DAYOFWEEK(fecha_pedido) " +
-            "  WHEN 1 THEN 'Dom' WHEN 2 THEN 'Lun' WHEN 3 THEN 'Mar' " +
-            "  WHEN 4 THEN 'Mié' WHEN 5 THEN 'Jue' WHEN 6 THEN 'Vie' " +
-            "  WHEN 7 THEN 'Sáb' END AS dia, " +
-            "COUNT(*) AS cantidad FROM pedidos WHERE " + ventaValida("") + " "
-        );
-
-        if (filtrarSucursal) sql.append("AND id_sucursal = ? ");
-        sql.append("AND ").append(condicionPeriodo("", filtrarMes)).append(" ");
-
-        sql.append("GROUP BY DAYOFWEEK(fecha_pedido) ORDER BY DAYOFWEEK(fecha_pedido)");
+        boolean filtrarSucursal = filtraSucursal(idSucursal);
+        String sql = "SELECT CASE DAYOFWEEK(fecha_pedido) " +
+                     "  WHEN 1 THEN 'Dom' WHEN 2 THEN 'Lun' WHEN 3 THEN 'Mar' " +
+                     "  WHEN 4 THEN 'Mié' WHEN 5 THEN 'Jue' WHEN 6 THEN 'Vie' " +
+                     "  WHEN 7 THEN 'Sáb' END AS dia, " +
+                     "COUNT(*) AS cantidad FROM pedidos " +
+                     "WHERE " + periodo.condicion("") + " AND " + ventaValida("") + " " +
+                     (filtrarSucursal ? "AND id_sucursal = ? " : "") +
+                     "GROUP BY DAYOFWEEK(fecha_pedido) ORDER BY DAYOFWEEK(fecha_pedido)";
 
         try (Connection conn = obtenerConexion();
-             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
-            int paramIndex = 1;
-            if (filtrarSucursal) stmt.setInt(paramIndex++, idSucursal);
-            if (filtrarMes) stmt.setInt(paramIndex, mes);
-
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            int paramIndex = periodo.cargarParametros(stmt, 1);
+            if (filtrarSucursal) stmt.setInt(paramIndex, idSucursal);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     resultado.put(rs.getString("dia"), rs.getInt("cantidad"));
@@ -222,27 +184,19 @@ public class DashboardDAOImpl implements DashboardDAO {
     }
 
     @Override
-    public Map<String, Integer> obtenerHorariosConcurridos(Integer idSucursal, Integer mes) throws SQLException {
+    public Map<String, Integer> obtenerHorariosConcurridos(Integer idSucursal, Periodo periodo) throws SQLException {
         Map<String, Integer> resultado = new LinkedHashMap<>();
-        boolean filtrarSucursal = (idSucursal != null && idSucursal > 0);
-        boolean filtrarMes = (mes != null && mes > 0);
+        boolean filtrarSucursal = filtraSucursal(idSucursal);
 
-        StringBuilder sql = new StringBuilder(
-            "SELECT DATE_FORMAT(fecha_pedido, '%H:00') AS hora, COUNT(*) AS cantidad " +
-            "FROM pedidos WHERE " + ventaValida("") + " "
-        );
-
-        if (filtrarSucursal) sql.append("AND id_sucursal = ? ");
-        sql.append("AND ").append(condicionPeriodo("", filtrarMes)).append(" ");
-
-        sql.append("GROUP BY HOUR(fecha_pedido) ORDER BY HOUR(fecha_pedido)");
+        String sql = "SELECT DATE_FORMAT(fecha_pedido, '%H:00') AS hora, COUNT(*) AS cantidad " +
+                     "FROM pedidos WHERE " + periodo.condicion("") + " AND " + ventaValida("") + " " +
+                     (filtrarSucursal ? "AND id_sucursal = ? " : "") +
+                     "GROUP BY HOUR(fecha_pedido) ORDER BY HOUR(fecha_pedido)";
 
         try (Connection conn = obtenerConexion();
-             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
-            int paramIndex = 1;
-            if (filtrarSucursal) stmt.setInt(paramIndex++, idSucursal);
-            if (filtrarMes) stmt.setInt(paramIndex, mes);
-
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            int paramIndex = periodo.cargarParametros(stmt, 1);
+            if (filtrarSucursal) stmt.setInt(paramIndex, idSucursal);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     resultado.put(rs.getString("hora"), rs.getInt("cantidad"));

@@ -21,6 +21,8 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
 
     private JComboBox<Proveedor> cmbProveedor;
     private JComboBox<Producto> cmbProducto;
+    private ComboBuscable<Proveedor> buscadorProveedor;
+    private ComboBuscable<Producto> buscadorProducto;
     private JTextField txtCantidad;
     private JTextField txtPrecioUnitario;
     private JButton btnAgregarLinea;
@@ -50,11 +52,15 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
         lblProv.setFont(labelFont);
         panelCampos.add(lblProv);
         cmbProveedor = new JComboBox<>();
+        cmbProveedor.setToolTipText("Escribí para buscar el proveedor");
+        buscadorProveedor = ComboBuscable.aplicar(cmbProveedor, Proveedor.class);
         panelCampos.add(cmbProveedor);
         JLabel lblProd = new JLabel("Producto / artículo:");
         lblProd.setFont(labelFont);
         panelCampos.add(lblProd);
         cmbProducto = new JComboBox<>();
+        cmbProducto.setToolTipText("Escribí para buscar el producto");
+        buscadorProducto = ComboBuscable.aplicar(cmbProducto, Producto.class);
         panelCampos.add(cmbProducto);
         JLabel lblCant = new JLabel("Cantidad:");
         lblCant.setFont(labelFont);
@@ -89,7 +95,7 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
         add(panelNorteContenedor, BorderLayout.NORTH);
         JPanel panelTablaContenedor = new JPanel(new BorderLayout(5, 5));
         panelTablaContenedor.setBorder(BorderFactory.createTitledBorder("Detalle de ítems agregados"));
-        String[] columnas = {"SKU", "Descripción producto", "Cantidad", "Precio U.", "Subtotal"};
+        String[] columnas = {"SKU", "Descripción producto", "Cantidad", "Precio U.", "Subtotal", "Proveedor"};
         modeloTabla = new DefaultTableModel(columnas, 0) {
             @Override
             public boolean isCellEditable(int row, int col) { return false; }
@@ -113,16 +119,8 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
 
     private void cargarDatosDesdeBaseDatos() {
         try {
-            ProveedorDAO provDAO = new ProveedorDAO();
-            cmbProveedor.removeAllItems();
-            for (Proveedor p : provDAO.listarTodos()) {
-                cmbProveedor.addItem(p);
-            }
-            ProductoDAO prodDAO = new ProductoDAO();
-            cmbProducto.removeAllItems();
-            for (Producto prod : prodDAO.listarTodos()) {
-                cmbProducto.addItem(prod);
-            }
+            buscadorProveedor.setItems(new ProveedorDAO().listarTodos());
+            buscadorProducto.setItems(new ProductoDAO().listarTodos());
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(this, "Error al cargar datos iniciales: " + e.getMessage(), "Error DB", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
@@ -157,8 +155,18 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
 
     private void agregarLineaALaOC() {
         try {
-            Producto prod = (Producto) cmbProducto.getSelectedItem();
-            if (prod == null || txtCantidad.getText().isEmpty() || txtPrecioUnitario.getText().isEmpty()) {
+            // Cada ítem queda asociado al proveedor elegido al agregarlo (una OC puede tener varios)
+            Proveedor prov = buscadorProveedor.getSeleccionado();
+            if (prov == null) {
+                JOptionPane.showMessageDialog(this, "Elegí el proveedor del ítem (escribí para buscarlo).", "Proveedor", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            Producto prod = buscadorProducto.getSeleccionado();
+            if (prod == null) {
+                JOptionPane.showMessageDialog(this, "Elegí un producto de la lista (escribí para buscarlo).", "Producto", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            if (txtCantidad.getText().isEmpty() || txtPrecioUnitario.getText().isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Complete los datos del ítem.", "Campos vacíos", JOptionPane.WARNING_MESSAGE);
                 return;
             }
@@ -169,7 +177,9 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
                 return;
             }
             double subtotal = cant * precio;
-            LineaOC linea = new LineaOC(0, 0, prod.getSku(), cant, (float) precio, subtotal);
+            LineaOC linea = new LineaOC(0, 0, prod.getSku(), cant, precio, subtotal);
+            linea.setIdProveedor(prov.getId());
+            linea.setNombreProveedor(prov.getNombre());
             lineasOCActuales.add(linea);
 
             modeloTabla.addRow(new Object[]{
@@ -177,7 +187,8 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
                 prod.getNombre(),
                 cant,
                 precio,
-                subtotal
+                subtotal,
+                prov.getNombre()
             });
             actualizarTotal();
             txtCantidad.setText("");
@@ -199,15 +210,16 @@ public class GestionOrdenDeCompraPanel extends JPanel implements ActionListener 
     }
 
     private void guardarOrdenDeCompra() {
-        if (lineasOCActuales.isEmpty() || cmbProveedor.getSelectedItem() == null) {
-            JOptionPane.showMessageDialog(this, "Formulario incompleto o sin ítems.", "Error", JOptionPane.ERROR_MESSAGE);
+        if (lineasOCActuales.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Agregá al menos un ítem a la orden.", "Sin ítems", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        Proveedor prov = (Proveedor) cmbProveedor.getSelectedItem();
-        int idUsuario = (SesionUsuario.getUsuario() != null) ? SesionUsuario.getUsuario().getId() : 1;
+        int idUsuario = SesionUsuario.getIdUsuarioOr(1);
         double total = lineasOCActuales.stream().mapToDouble(LineaOC::getSubtotal).sum();
-        OrdenDeCompra oc = new OrdenDeCompra(0, prov.getId(), idUsuario, LocalDateTime.now(), total, "EMITIDA", lineasOCActuales);
+        // Proveedor de cabecera = el del primer ítem; cada línea guarda el suyo
+        int proveedorPrincipal = lineasOCActuales.get(0).getIdProveedor();
+        OrdenDeCompra oc = new OrdenDeCompra(0, proveedorPrincipal, idUsuario, LocalDateTime.now(), total, "EMITIDA", lineasOCActuales);
         try {
             if (ocDAO.guardarOCCompleta(oc)) {
                 JOptionPane.showMessageDialog(this, "Orden de Compra registrada con éxito.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
